@@ -50,8 +50,7 @@ impl Ping {
 
     /// Apply the `Ping` command and return the message.
     ///
-    /// The response is written to `dst`. This is called by the server in order
-    /// to execute a received command.
+    /// [apply]: crate::cmd::Command::apply
     #[instrument(skip(self, dst))]
     pub(crate) async fn apply(self, dst: &mut Connection) -> crate::Result<()> {
         let response = match self.msg {

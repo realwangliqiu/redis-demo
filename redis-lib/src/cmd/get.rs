@@ -1,6 +1,6 @@
+use crate::cmd::Protocol;
 use crate::frame::PushFrame;
 use crate::{Connection, Db, Frame, Parse};
-
 use bytes::Bytes;
 use tracing::{debug, instrument};
 
@@ -41,34 +41,26 @@ impl Get {
         Ok(Get { key })
     }
 
-    /// Apply the `Get` command to the specified `Db` instance.
-    /// 
-    /// [apply]: redis_lib::cmd::Command::apply
+    /// [apply]: crate::cmd::Command::apply
     #[instrument(skip(self, db, dst))]
     pub(crate) async fn apply(self, db: &Db, dst: &mut Connection) -> crate::Result<()> {
-        // Get the value from the shared database state
-        let response = if let Some(value) = db.get(&self.key) {
-            // If a value is present, it is written to the client in "bulk"
-            // format.
+        let resp_frame = if let Some(value) = db.get(&self.key) {
             Frame::Bulk(value)
         } else {
-            // If there is no value, `Null` is written.
+            // there is no value.
             Frame::Null
         };
 
-        debug!(?response);
-
-        // Write the response back to the client
-        dst.write_frame(&response).await?;
+        debug!(?resp_frame);
+        // Write the `resp_frame` to the client
+        dst.write_frame(&resp_frame).await?;
 
         Ok(())
     }
+}
 
-    /// Converts the command into an equivalent `Frame`.
-    ///
-    /// This is called by the client when encoding a `Get` command to send to
-    /// the server.
-    pub(crate) fn into_frame(self) -> Frame {
+impl Protocol for Get {
+    fn into_frame(self) -> Frame {
         let mut frame = vec![];
         frame.push_bulk(Bytes::from("get".as_bytes()));
         frame.push_bulk(Bytes::from(self.key.into_bytes()));

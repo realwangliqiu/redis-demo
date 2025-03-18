@@ -2,7 +2,7 @@
 //!
 //! Provides an async connect and methods for issuing the supported commands.
 
-use crate::cmd::{Get, Ping, Publish, Set, Subscribe, Unsubscribe};
+use crate::cmd::{Get, Ping, Protocol, Publish, Set, Subscribe, Unsubscribe};
 use crate::{Connection, Frame};
 
 use async_stream::try_stream;
@@ -177,7 +177,7 @@ impl Client {
     /// Demonstrates basic usage.
     ///
     /// ```no_run
-    /// use mini_redis::clients::Client;
+    /// use redis_lib::clients::Client;
     ///
     /// #[tokio::main]
     /// async fn main() {

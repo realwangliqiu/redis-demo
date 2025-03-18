@@ -62,7 +62,7 @@ impl Command {
         Ok(command)
     }
 
-    /// Apply the command to `db`.
+    /// Apply `Command` to `db`.
     ///
     /// The response is written to `dst`. This is called by the server in order
     /// to execute a received command.
@@ -99,4 +99,12 @@ impl Command {
             Command::Unknown(cmd) => cmd.get_name(),
         }
     }
+}
+
+
+pub trait Protocol {
+    /// Converts the command into an equivalent `Frame`.
+    ///
+    /// This is called by the client when encoding a command to send to the server.
+    fn into_frame(self) -> Frame;
 }

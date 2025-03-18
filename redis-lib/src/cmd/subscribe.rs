@@ -98,6 +98,7 @@ impl Subscribe {
     /// are updated accordingly.
     ///
     /// [here]: https://redis.io/topics/pubsub
+    /// [apply]: crate::cmd::Command::apply
     pub(crate) async fn apply(
         mut self,
         db: &Db,

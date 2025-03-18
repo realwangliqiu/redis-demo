@@ -63,8 +63,7 @@ impl Publish {
 
     /// Apply the `Publish` command to the specified `Db` instance.
     ///
-    /// The response is written to `dst`. This is called by the server in order
-    /// to execute a received command.
+    /// [apply]: crate::cmd::Command::apply
     pub(crate) async fn apply(self, db: &Db, dst: &mut Connection) -> crate::Result<()> {
         // The shared state contains the `tokio::sync::broadcast::Sender` for
         // all active channels. Calling `db.publish` dispatches the message into
