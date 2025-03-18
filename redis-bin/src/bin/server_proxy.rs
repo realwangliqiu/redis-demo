@@ -34,10 +34,10 @@ pub async fn main() -> redis_lib::Result<()> {
     set_up_logging()?;
 
     let cmd = CliCommand::parse();
-    let port = cmd.port.unwrap_or(DEFAULT_PORT);
+    // let port = cmd.port.unwrap_or(DEFAULT_PORT);
 
-    let listener = TcpListener::bind(&format!("127.0.0.1:{}", port)).await?;
-    // FIXME
+    let listener = TcpListener::bind(&format!("127.0.0.1:{}", cmd.port)).await?;
+     
     server::run(listener, signal::ctrl_c()).await;
 
     Ok(())
@@ -46,8 +46,8 @@ pub async fn main() -> redis_lib::Result<()> {
 #[derive(Parser, Debug)]
 #[command(name = "redis-server", version, author, about = "A Redis server")]
 struct CliCommand {
-    #[arg(long)]
-    port: Option<u16>,
+    #[clap(long, default_value_t = DEFAULT_PORT)]
+    port: u16,
 }
 
 #[cfg(not(feature = "otel"))]

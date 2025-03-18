@@ -1,8 +1,4 @@
-
- 
-
-use redis_demo::{clients::Client, DEFAULT_PORT};
-
+use redis_lib::{DEFAULT_PORT, clients::Client};
 use bytes::Bytes;
 use clap::{Parser, Subcommand};
 use std::num::ParseIntError;
@@ -15,10 +11,10 @@ struct Cli {
     #[clap(subcommand)]
     command: Command,
 
-    #[arg(id = "hostname", long, default_value = "127.0.0.1")]
+    #[clap(long, default_value = "127.0.0.1")]
     host: String,
 
-    #[arg(long, default_value_t = DEFAULT_PORT)]
+    #[clap(long, default_value_t = DEFAULT_PORT)]
     port: u16,
 }
 
@@ -70,7 +66,7 @@ enum Command {
 /// threads. The CLI tool use case benefits more by being lighter instead of
 /// multi-threaded.
 #[tokio::main(flavor = "current_thread")]
-async fn main() -> redis_demo::Result<()> {
+async fn main() -> redis_lib::Result<()> {
     // Enable logging
     tracing_subscriber::fmt::try_init()?;
 

@@ -1,14 +1,13 @@
-use crate::cmd::{Parse, ParseError, Unknown};
+use crate::cmd::{Parse, ParseError, Protocol, Unknown};
+use crate::frame::PushFrame;
 use crate::{Command, Connection, Db, Frame, Shutdown};
-
 use bytes::Bytes;
 use std::pin::Pin;
 use tokio::select;
 use tokio::sync::broadcast;
 use tokio_stream::{Stream, StreamExt, StreamMap};
-use crate::frame::PushFrame;
 
-/// Subscribes the client to one or more channels.
+/// client subscribes to one or more channels.
 ///
 /// Once the client enters the subscribed state, it is not supposed to issue any
 /// other commands, except for additional SUBSCRIBE, PSUBSCRIBE, UNSUBSCRIBE,
@@ -18,7 +17,7 @@ pub struct Subscribe {
     channels: Vec<String>,
 }
 
-/// Unsubscribes the client from one or more channels.
+/// client unsubscribes one or more channels.
 ///
 /// When no channels are specified, the client is unsubscribed from all the
 /// previously subscribed channels.
@@ -154,20 +153,6 @@ impl Subscribe {
             };
         }
     }
-
-    /// Converts the command into an equivalent `Frame`.
-    ///
-    /// This is called by the client when encoding a `Subscribe` command to send
-    /// to the server.
-    pub(crate) fn into_frame(self) -> Frame {
-        let mut frame = vec![];
-        frame.push_bulk(Bytes::from("subscribe".as_bytes()));
-        for channel in self.channels {
-            frame.push_bulk(Bytes::from(channel.into_bytes()));
-        }
-        
-        frame.into()
-    }
 }
 
 async fn subscribe_to_channel(
@@ -259,7 +244,7 @@ fn make_subscribe_frame(channel_name: String, num_subs: usize) -> Frame {
     response.push_bulk(Bytes::from_static(b"subscribe"));
     response.push_bulk(Bytes::from(channel_name));
     response.push_int(num_subs as u64);
-    
+
     response.into()
 }
 
@@ -269,7 +254,7 @@ fn make_unsubscribe_frame(channel_name: String, num_subs: usize) -> Frame {
     response.push_bulk(Bytes::from_static(b"unsubscribe"));
     response.push_bulk(Bytes::from(channel_name));
     response.push_int(num_subs as u64);
-    
+
     response.into()
 }
 
@@ -280,7 +265,7 @@ fn make_message_frame(channel_name: String, msg: Bytes) -> Frame {
     response.push_bulk(Bytes::from_static(b"message"));
     response.push_bulk(Bytes::from(channel_name));
     response.push_bulk(msg);
-    
+
     response.into()
 }
 
@@ -337,12 +322,22 @@ impl Unsubscribe {
 
         Ok(Unsubscribe { channels })
     }
+}
 
-    /// Converts the command into an equivalent `Frame`.
-    ///
-    /// This is called by the client when encoding an `Unsubscribe` command to
-    /// send to the server.
-    pub(crate) fn into_frame(self) -> Frame {
+impl Protocol for Subscribe {
+    fn into_frame(self) -> Frame {
+        let mut frame = vec![];
+        frame.push_bulk(Bytes::from("subscribe".as_bytes()));
+        for channel in self.channels {
+            frame.push_bulk(Bytes::from(channel.into_bytes()));
+        }
+
+        frame.into()
+    }
+}
+
+impl Protocol for Unsubscribe {
+    fn into_frame(self) -> Frame {
         let mut frame = vec![];
         frame.push_bulk(Bytes::from("unsubscribe".as_bytes()));
 
