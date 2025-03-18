@@ -11,36 +11,20 @@ use tracing::{debug, instrument};
 /// handles string values.
 #[derive(Debug)]
 pub struct Get {
-    /// Name of the key to get
     key: String,
 }
 
 impl Get {
-    /// Create a new `Get` command which fetches `key`.
     pub fn new(key: impl ToString) -> Get {
         Get {
             key: key.to_string(),
         }
     }
 
-    /// Get the key
     pub fn key(&self) -> &str {
         &self.key
     }
 
-    /// Parse a `Get` instance from a received frame.
-    ///
-    /// The `Parse` argument provides a cursor-like API to read fields from the
-    /// `Frame`. At this point, the entire frame has already been received from
-    /// the socket.
-    ///
-    /// The `GET` string has already been consumed.
-    ///
-    /// # Returns
-    ///
-    /// Returns the `Get` value on success. If the frame is malformed, `Err` is
-    /// returned.
-    ///
     /// # Format
     ///
     /// Expects an array frame containing two entries.
@@ -58,9 +42,8 @@ impl Get {
     }
 
     /// Apply the `Get` command to the specified `Db` instance.
-    ///
-    /// The response is written to `dst`. This is called by the server in order
-    /// to execute a received command.
+    /// 
+    /// [apply]: redis_lib::cmd::Command::apply
     #[instrument(skip(self, db, dst))]
     pub(crate) async fn apply(self, db: &Db, dst: &mut Connection) -> crate::Result<()> {
         // Get the value from the shared database state
