@@ -42,16 +42,10 @@ impl Parse {
         self.frames.next().ok_or(ParseError::EndOfStream)
     }
 
-    /// Return the next entry as a string.
-    ///
-    /// If the next entry cannot be represented as a String, then an error is returned.
+    /// covert the next `Frame` as a string.
     pub(crate) fn next_string(&mut self) -> Result<String, ParseError> {
         match self.next()? {
-            // Both `Simple` and `Bulk` representation may be strings. Strings
-            // are parsed to UTF-8.
-            //
-            // While errors are stored as strings, they are considered separate
-            // types.
+            // Both `Simple` and `Bulk` representation may be strings. 
             Frame::Simple(s) => Ok(s),
             Frame::Bulk(data) => str::from_utf8(&data[..])
                 .map(|s| s.to_string())
@@ -64,10 +58,7 @@ impl Parse {
         }
     }
 
-    /// Return the next entry as raw bytes.
-    ///
-    /// If the next entry cannot be represented as raw bytes, an error is
-    /// returned.
+    ///  covert the next `Frame` as raw bytes.
     pub(crate) fn next_bytes(&mut self) -> Result<Bytes, ParseError> {
         match self.next()? {
             // Both `Simple` and `Bulk` representation may be raw bytes.
