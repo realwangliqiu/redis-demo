@@ -10,6 +10,8 @@ use std::num::TryFromIntError;
 use std::string::FromUtf8Error;
 
 /// A frame in the Redis protocol.
+/// 
+/// Each entry in the `Frame` is a "token".
 #[derive(Clone, Debug)]
 pub enum Frame {
     Simple(String),

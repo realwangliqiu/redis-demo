@@ -7,10 +7,8 @@ use crate::Frame;
 use bytes::Bytes;
 use std::{fmt, str, vec};
 
-/// Commands are represented as array frames. Each entry in the frame is a
-/// "token". A `Parse` is initialized with the array frame and provides a
-/// cursor-like API. Each command struct includes a `parse_frame` method that
-/// uses a `Parse` to extract its fields.
+ 
+/// construct from `Frame::Array`
 #[derive(Debug)]
 pub(crate) struct Parse {
     frames: vec::IntoIter<Frame>,
@@ -47,7 +45,7 @@ impl Parse {
         match self.next()? {
             // Both `Simple` and `Bulk` representation may be strings. 
             Frame::Simple(s) => Ok(s),
-            Frame::Bulk(data) => str::from_utf8(&data[..])
+            Frame::Bulk(bytes) => str::from_utf8(&bytes)
                 .map(|s| s.to_string())
                 .map_err(|_| "protocol error; invalid string".into()),
             other => Err(format!(
@@ -58,15 +56,12 @@ impl Parse {
         }
     }
 
-    ///  covert the next `Frame` as raw bytes.
+    /// covert the next `Frame` as raw bytes.
     pub(crate) fn next_bytes(&mut self) -> Result<Bytes, ParseError> {
         match self.next()? {
-            // Both `Simple` and `Bulk` representation may be raw bytes.
-            //
-            // Although errors are stored as strings and could be represented as
-            // raw bytes, they are considered separate types.
+            // Both `Simple` and `Bulk` representation may be raw bytes. 
             Frame::Simple(s) => Ok(Bytes::from(s.into_bytes())),
-            Frame::Bulk(data) => Ok(data),
+            Frame::Bulk(bytes) => Ok(bytes),
             frame => Err(format!(
                 "protocol error; expected simple frame or bulk frame, got {:?}",
                 frame
@@ -75,31 +70,24 @@ impl Parse {
         }
     }
 
-    /// Return the next entry as an integer.
+    /// covert the next `Frame` as an integer.
     ///
-    /// This includes `Simple`, `Bulk`, and `Integer` frame types. `Simple` and
-    /// `Bulk` frame types are parsed.
-    ///
-    /// If the next entry cannot be represented as an integer, then an error is
-    /// returned.
+    /// This includes `Simple`, `Bulk`, and `Integer` frame types.  
     pub(crate) fn next_int(&mut self) -> Result<u64, ParseError> {
         use atoi::atoi;
 
         const MSG: &str = "protocol error; invalid number";
 
         match self.next()? {
-            // An integer frame type is already stored as an integer.
-            Frame::Integer(v) => Ok(v),
-            // Simple and bulk frames must be parsed as integers. If the parsing
-            // fails, an error is returned.
+            Frame::Integer(num) => Ok(num),
             Frame::Simple(data) => atoi::<u64>(data.as_bytes()).ok_or_else(|| MSG.into()),
             Frame::Bulk(data) => atoi::<u64>(&data).ok_or_else(|| MSG.into()),
-            frame => Err(format!("protocol error; expected int frame but got {:?}", frame).into()),
+            other => Err(format!("protocol error; expected int frame but got {:?}", other).into()),
         }
     }
 
-    /// Ensure there are no more entries in the array
-    pub(crate) fn finish(&mut self) -> Result<(), ParseError> {
+    /// Check if there is any remaining unconsumed `Frame` in the `Parse`. 
+    pub(crate) fn check_done(&mut self) -> Result<(), ParseError> {
         if self.frames.next().is_none() {
             Ok(())
         } else {

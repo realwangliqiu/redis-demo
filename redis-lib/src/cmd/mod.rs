@@ -74,10 +74,9 @@ impl Command {
             }
         };
 
-        // Check if there is any remaining unconsumed fields in the `Parse`
-        // value. If fields remain, this indicates an unexpected frame format
+        // If there is remaining `Frame`, this indicates an unexpected frame format
         // and an error is returned.
-        parse.finish()?;
+        parse.check_done()?;
 
         // The command has been successfully parsed
         Ok(command)
