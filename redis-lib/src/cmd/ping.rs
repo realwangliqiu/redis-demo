@@ -8,17 +8,15 @@ use tracing::{debug, instrument};
 ///
 /// This command is often used to test if a connection is still alive, or to measure latency.
 #[derive(Debug, Default)]
-pub struct Ping { 
+pub struct Ping {
     echo: Option<Bytes>,
 }
 
-impl Ping { 
+impl Ping {
     pub fn new(echo: Option<Bytes>) -> Ping {
         Ping { echo }
     }
 
-  
-   
     /// # Format
     ///
     /// Expects an array frame containing `PING` and an optional message.
@@ -33,7 +31,7 @@ impl Ping {
             Err(e) => Err(e.into()),
         }
     }
- 
+
     /// [apply]: crate::cmd::Command::apply
     #[instrument(skip(self, dst))]
     pub(crate) async fn apply(self, dst: &mut Connection) -> crate::Result<()> {

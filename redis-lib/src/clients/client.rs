@@ -87,28 +87,9 @@ impl Client {
         Ok(Client { connection })
     }
 
-    /// Ping to the server.
+    /// [Ping] to the server.
     ///
-    /// Returns PONG if no argument is provided, otherwise
-    /// return a copy of the argument as a bulk.
-    ///
-    /// This command is often used to test if a connection
-    /// is still alive, or to measure latency.
-    ///
-    /// # Examples
-    ///
-    /// Demonstrates basic usage.
-    /// ```no_run
-    /// use mini_redis::clients::Client;
-    ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let mut client = Client::connect("localhost:6379").await.unwrap();
-    ///
-    ///     let pong = client.ping(None).await.unwrap();
-    ///     assert_eq!(b"PONG", &pong[..]);
-    /// }
-    /// ```
+    /// [Ping]: crate::cmd::Ping 
     #[instrument(skip(self))]
     pub async fn ping(&mut self, msg: Option<Bytes>) -> crate::Result<Bytes> {
         let frame = Ping::new(msg).into_frame();

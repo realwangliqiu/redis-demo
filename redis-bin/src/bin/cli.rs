@@ -1,15 +1,15 @@
-use redis_lib::{DEFAULT_PORT, clients::Client};
 use bytes::Bytes;
 use clap::{Parser, Subcommand};
+use redis_lib::{DEFAULT_PORT, clients::Client};
 use std::num::ParseIntError;
 use std::str;
 use std::time::Duration;
 
 #[derive(Parser, Debug)]
 #[command(name = "redis-cli", version, author, about = "Issue Redis commands")]
-struct Cli {
+struct CliCommand {
     #[clap(subcommand)]
-    command: Command,
+    sub_cmd: Command,
 
     #[clap(long, default_value = "127.0.0.1")]
     host: String,
@@ -20,81 +20,55 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    Ping {
-        /// Message to ping
-        msg: Option<Bytes>,
-    },
-    /// Get the value of key.
-    Get {
-        /// Name of key to get
-        key: String,
-    },
-    /// Set key to hold the string value.
+    /// [Ping]: redis_lib::cmd::Ping
+    Ping { echo: Option<Bytes> },
+    /// [Get]: redis_lib::cmd::Get
+    Get { key: String },
+    /// [Set]: redis_lib::cmd::Set
     Set {
-        /// Name of key to set
         key: String,
-
-        /// Value to set.
         value: Bytes,
-
-        /// Expire the value after specified amount of time
-        #[arg(value_parser = duration_from_ms_str)]
+        #[clap(value_parser = duration_from)]
         expires: Option<Duration>,
     },
-    ///  Publisher to send a message to a specific channel.
-    Publish {
-        /// Name of channel
-        channel: String,
-
-        /// Message to publish
-        message: Bytes,
-    },
-    /// Subscribe a client to a specific channel or channels.
-    Subscribe {
-        /// Specific channel or channels
-        channels: Vec<String>,
-    },
+    /// [Publish]: redis_lib::cmd::Publish
+    Publish { channel: String, message: Bytes },
+    /// [Subscribe]: redis_lib::cmd::Subscribe
+    Subscribe { channels: Vec<String> },
 }
 
-/// Entry point for CLI tool.
-///
-/// The `[tokio::main]` annotation signals that the Tokio runtime should be
-/// started when the function is called. The body of the function is executed
-/// within the newly spawned runtime.
-///
-/// `flavor = "current_thread"` is used here to avoid spawning background
-/// threads. The CLI tool use case benefits more by being lighter instead of
-/// multi-threaded.
+fn duration_from(src: &str) -> Result<Duration, ParseIntError> {
+    let ms = src.parse::<u64>()?;
+    Ok(Duration::from_millis(ms))
+}
+
+/// `flavor = "current_thread"` is used here to make CLI lighter instead of multi-threads.
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> redis_lib::Result<()> {
     // Enable logging
     tracing_subscriber::fmt::try_init()?;
 
-    // Parse command line arguments
-    let cli = Cli::parse();
+    let cmd = CliCommand::parse();
 
-    // Get the remote address to connect to
-    let addr = format!("{}:{}", cli.host, cli.port);
-
-    // Establish a connection
+    let addr = format!("{}:{}", cmd.host, cmd.port);
     let mut client = Client::connect(&addr).await?;
 
-    // Process the requested command
-    match cli.command {
-        Command::Ping { msg } => {
-            let value = client.ping(msg).await?;
-            if let Ok(string) = str::from_utf8(&value) {
+    // Process subcommand
+    match cmd.sub_cmd {
+        Command::Ping { echo } => {
+            let bytes = client.ping(echo).await?;
+            if let Ok(string) = str::from_utf8(&bytes) {
                 println!("\"{}\"", string);
             } else {
-                println!("{:?}", value);
+                println!("{:?}", bytes);
             }
         }
         Command::Get { key } => {
-            if let Some(value) = client.get(&key).await? {
-                if let Ok(string) = str::from_utf8(&value) {
+            if let Some(bytes) = client.get(&key).await? {
+                if let Ok(string) = str::from_utf8(&bytes) {
                     println!("\"{}\"", string);
                 } else {
-                    println!("{:?}", value);
+                    println!("{:?}", bytes);
                 }
             } else {
                 println!("(nil)");
@@ -102,7 +76,7 @@ async fn main() -> redis_lib::Result<()> {
         }
         Command::Set {
             key,
-            value,
+            value, 
             expires: None,
         } => {
             client.set(&key, value).await?;
@@ -137,9 +111,4 @@ async fn main() -> redis_lib::Result<()> {
     }
 
     Ok(())
-}
-
-fn duration_from_ms_str(src: &str) -> Result<Duration, ParseIntError> {
-    let ms = src.parse::<u64>()?;
-    Ok(Duration::from_millis(ms))
 }
