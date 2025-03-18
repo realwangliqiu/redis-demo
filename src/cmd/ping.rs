@@ -71,7 +71,7 @@ impl Ping {
     /// This is called by the client when encoding a `Ping` command to send
     /// to the server.
     pub(crate) fn into_frame(self) -> Frame {
-        let mut frame = Frame::array();
+        let mut frame = Frame::empty_array();
         frame.push_bulk(Bytes::from("ping".as_bytes()));
         if let Some(msg) = self.msg {
             frame.push_bulk(msg);

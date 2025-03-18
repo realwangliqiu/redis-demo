@@ -158,7 +158,7 @@ impl Subscribe {
     /// This is called by the client when encoding a `Subscribe` command to send
     /// to the server.
     pub(crate) fn into_frame(self) -> Frame {
-        let mut frame = Frame::array();
+        let mut frame = Frame::empty_array();
         frame.push_bulk(Bytes::from("subscribe".as_bytes()));
         for channel in self.channels {
             frame.push_bulk(Bytes::from(channel.into_bytes()));
@@ -252,7 +252,7 @@ async fn handle_command(
 /// taking a `&str` would require copying the data. This allows the caller to
 /// decide whether to clone the channel name or not.
 fn make_subscribe_frame(channel_name: String, num_subs: usize) -> Frame {
-    let mut response = Frame::array();
+    let mut response = Frame::empty_array();
     response.push_bulk(Bytes::from_static(b"subscribe"));
     response.push_bulk(Bytes::from(channel_name));
     response.push_int(num_subs as u64);
@@ -261,7 +261,7 @@ fn make_subscribe_frame(channel_name: String, num_subs: usize) -> Frame {
 
 /// Creates the response to an unsubcribe request.
 fn make_unsubscribe_frame(channel_name: String, num_subs: usize) -> Frame {
-    let mut response = Frame::array();
+    let mut response = Frame::empty_array();
     response.push_bulk(Bytes::from_static(b"unsubscribe"));
     response.push_bulk(Bytes::from(channel_name));
     response.push_int(num_subs as u64);
@@ -271,7 +271,7 @@ fn make_unsubscribe_frame(channel_name: String, num_subs: usize) -> Frame {
 /// Creates a message informing the client about a new message on a channel that
 /// the client subscribes to.
 fn make_message_frame(channel_name: String, msg: Bytes) -> Frame {
-    let mut response = Frame::array();
+    let mut response = Frame::empty_array();
     response.push_bulk(Bytes::from_static(b"message"));
     response.push_bulk(Bytes::from(channel_name));
     response.push_bulk(msg);
@@ -337,7 +337,7 @@ impl Unsubscribe {
     /// This is called by the client when encoding an `Unsubscribe` command to
     /// send to the server.
     pub(crate) fn into_frame(self) -> Frame {
-        let mut frame = Frame::array();
+        let mut frame = Frame::empty_array();
         frame.push_bulk(Bytes::from("unsubscribe".as_bytes()));
 
         for channel in self.channels {

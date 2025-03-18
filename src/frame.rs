@@ -1,4 +1,6 @@
 //! utilities for parsing frames from a byte array.
+//! 
+//! 
 
 use bytes::{Buf, Bytes};
 use std::convert::TryInto;
@@ -28,12 +30,12 @@ pub enum Error {
 }
 
 impl Frame {
-    /// Returns an empty array
-    pub(crate) fn array() -> Frame {
+    pub(crate) fn empty_array() -> Frame {
         Frame::Array(vec![])
     }
 
-    /// Push a "bulk" frame into the array. `self` must be an Array frame.
+    /// Push a "bulk" frame into the array. 
+    /// FIXME `self` must be an Array frame.
     ///
     /// # Panics
     ///

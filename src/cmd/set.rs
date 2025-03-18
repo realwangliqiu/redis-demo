@@ -142,7 +142,7 @@ impl Set {
     /// This is called by the client when encoding a `Set` command to send to
     /// the server.
     pub(crate) fn into_frame(self) -> Frame {
-        let mut frame = Frame::array();
+        let mut frame = Frame::empty_array();
         frame.push_bulk(Bytes::from("set".as_bytes()));
         frame.push_bulk(Bytes::from(self.key.into_bytes()));
         frame.push_bulk(self.value);
