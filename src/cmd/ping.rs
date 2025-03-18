@@ -1,6 +1,7 @@
 use crate::{Connection, Frame, Parse, ParseError};
 use bytes::Bytes;
 use tracing::{debug, instrument};
+use crate::frame::PushFrame;
 
 /// Returns PONG if no argument is provided, otherwise
 /// return a copy of the argument as a bulk.
@@ -71,11 +72,12 @@ impl Ping {
     /// This is called by the client when encoding a `Ping` command to send
     /// to the server.
     pub(crate) fn into_frame(self) -> Frame {
-        let mut frame = Frame::empty_array();
+        let mut frame = vec![];
         frame.push_bulk(Bytes::from("ping".as_bytes()));
         if let Some(msg) = self.msg {
             frame.push_bulk(msg);
         }
-        frame
+        
+        frame.into()
     }
 }

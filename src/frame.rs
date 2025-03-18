@@ -1,6 +1,6 @@
 //! utilities for parsing frames from a byte array.
-//! 
-//! 
+//!
+//!
 
 use bytes::{Buf, Bytes};
 use std::convert::TryInto;
@@ -20,6 +20,28 @@ pub enum Frame {
     Array(Vec<Frame>),
 }
 
+pub trait PushFrame {
+    fn push_bulk(&mut self, bytes: Bytes);
+
+    fn push_int(&mut self, num: u64);
+}
+
+impl PushFrame for Vec<Frame> {
+    fn push_bulk(&mut self, bytes: Bytes) {
+        self.push(Frame::Bulk(bytes));
+    }
+
+    fn push_int(&mut self, num: u64) {
+        self.push(Frame::Integer(num));
+    }
+}
+
+impl From<Vec<Frame>> for Frame {
+    fn from(value: Vec<Frame>) -> Frame {
+        Frame::Array(value)
+    }
+}
+
 #[derive(Debug)]
 pub enum Error {
     /// Not enough data is available to parse a message
@@ -30,39 +52,6 @@ pub enum Error {
 }
 
 impl Frame {
-    pub(crate) fn empty_array() -> Frame {
-        Frame::Array(vec![])
-    }
-
-    /// Push a "bulk" frame into the array. 
-    /// FIXME `self` must be an Array frame.
-    ///
-    /// # Panics
-    ///
-    /// panics if `self` is not an array
-    pub(crate) fn push_bulk(&mut self, bytes: Bytes) {
-        match self {
-            Frame::Array(vec) => {
-                vec.push(Frame::Bulk(bytes));
-            }
-            _ => panic!("not an array frame"),
-        }
-    }
-
-    /// Push an "integer" frame into the array. `self` must be an Array frame.
-    ///
-    /// # Panics
-    ///
-    /// panics if `self` is not an array
-    pub(crate) fn push_int(&mut self, value: u64) {
-        match self {
-            Frame::Array(vec) => {
-                vec.push(Frame::Integer(value));
-            }
-            _ => panic!("not an array frame"),
-        }
-    }
-
     /// Checks if an entire message can be decoded from `src`
     pub fn check(src: &mut Cursor<&[u8]>) -> Result<(), Error> {
         match get_u8(src)? {

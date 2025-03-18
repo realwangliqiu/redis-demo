@@ -1,6 +1,7 @@
 use crate::{Connection, Db, Frame, Parse};
 
 use bytes::Bytes;
+use crate::frame::PushFrame;
 
 /// Posts a message to the given channel.
 ///
@@ -91,11 +92,11 @@ impl Publish {
     /// This is called by the client when encoding a `Publish` command to send
     /// to the server.
     pub(crate) fn into_frame(self) -> Frame {
-        let mut frame = Frame::empty_array();
+        let mut frame = vec![];
         frame.push_bulk(Bytes::from("publish".as_bytes()));
         frame.push_bulk(Bytes::from(self.channel.into_bytes()));
         frame.push_bulk(self.message);
 
-        frame
+        frame.into()
     }
 }

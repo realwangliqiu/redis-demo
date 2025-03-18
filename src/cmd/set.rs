@@ -4,6 +4,7 @@ use crate::{Connection, Db, Frame};
 use bytes::Bytes;
 use std::time::Duration;
 use tracing::{debug, instrument};
+use crate::frame::PushFrame;
 
 /// Set `key` to hold the string `value`.
 ///
@@ -142,7 +143,7 @@ impl Set {
     /// This is called by the client when encoding a `Set` command to send to
     /// the server.
     pub(crate) fn into_frame(self) -> Frame {
-        let mut frame = Frame::empty_array();
+        let mut frame = vec![];
         frame.push_bulk(Bytes::from("set".as_bytes()));
         frame.push_bulk(Bytes::from(self.key.into_bytes()));
         frame.push_bulk(self.value);
@@ -156,6 +157,6 @@ impl Set {
             frame.push_bulk(Bytes::from("px".as_bytes()));
             frame.push_int(ms.as_millis() as u64);
         }
-        frame
+        frame.into()
     }
 }
