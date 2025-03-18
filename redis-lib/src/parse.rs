@@ -1,53 +1,45 @@
+//!
+//! Utility for parsing a command
+//!  
+
 use crate::Frame;
 
 use bytes::Bytes;
 use std::{fmt, str, vec};
 
-/// Utility for parsing a command
-///
 /// Commands are represented as array frames. Each entry in the frame is a
 /// "token". A `Parse` is initialized with the array frame and provides a
 /// cursor-like API. Each command struct includes a `parse_frame` method that
 /// uses a `Parse` to extract its fields.
 #[derive(Debug)]
 pub(crate) struct Parse {
-    /// Array frame iterator.
-    parts: vec::IntoIter<Frame>,
+    frames: vec::IntoIter<Frame>,
 }
 
-/// Error encountered while parsing a frame.
-///
-/// Only `EndOfStream` errors are handled at runtime. All other errors result in
-/// the connection being terminated.
 #[derive(Debug)]
 pub(crate) enum ParseError {
-    /// Attempting to extract a value failed due to the frame being fully
-    /// consumed.
+    /// Attempting to extract a value failed due to the frame being fully consumed.
     EndOfStream,
 
-    /// All other errors
+    /// `Other` result in the connection being terminated.
     Other(crate::Error),
 }
 
 impl Parse {
-    /// Create a new `Parse` to parse the contents of `frame`.
-    ///
     /// Returns `Err` if `frame` is not an array frame.
     pub(crate) fn new(frame: Frame) -> Result<Parse, ParseError> {
         let array = match frame {
             Frame::Array(array) => array,
-            frame => return Err(format!("protocol error; expected array, got {:?}", frame).into()),
+            other => return Err(format!("protocol error; expected array, got {:?}", other).into()),
         };
 
         Ok(Parse {
-            parts: array.into_iter(),
+            frames: array.into_iter(),
         })
     }
 
-    /// Return the next entry. Array frames are arrays of frames, so the next
-    /// entry is a frame.
     fn next(&mut self) -> Result<Frame, ParseError> {
-        self.parts.next().ok_or(ParseError::EndOfStream)
+        self.frames.next().ok_or(ParseError::EndOfStream)
     }
 
     /// Return the next entry as a string.
@@ -64,9 +56,9 @@ impl Parse {
             Frame::Bulk(data) => str::from_utf8(&data[..])
                 .map(|s| s.to_string())
                 .map_err(|_| "protocol error; invalid string".into()),
-            frame => Err(format!(
+            other => Err(format!(
                 "protocol error; expected simple frame or bulk frame, got {:?}",
-                frame
+                other
             )
             .into()),
         }
@@ -117,7 +109,7 @@ impl Parse {
 
     /// Ensure there are no more entries in the array
     pub(crate) fn finish(&mut self) -> Result<(), ParseError> {
-        if self.parts.next().is_none() {
+        if self.frames.next().is_none() {
             Ok(())
         } else {
             Err("protocol error; expected end of frame, but there was more".into())

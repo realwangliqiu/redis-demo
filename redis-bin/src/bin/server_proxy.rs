@@ -1,12 +1,17 @@
 //!
-//!
+//! server
 //!
 
-use redis_demo::{server, DEFAULT_PORT};
+#![warn(clippy::pedantic)]
+// #![warn(clippy::cargo)]
+
+use redis_lib::{server, DEFAULT_PORT};
 
 use clap::Parser;
 use tokio::net::TcpListener;
 use tokio::signal;
+
+
 
 #[cfg(feature = "otel")]
 // To be able to set the XrayPropagator
@@ -25,7 +30,7 @@ use tracing_subscriber::{
 };
 
 #[tokio::main]
-pub async fn main() -> redis_demo::Result<()> {
+pub async fn main() -> redis_lib::Result<()> {
     set_up_logging()?;
 
     let cmd = CliCommand::parse();
@@ -46,7 +51,7 @@ struct CliCommand {
 }
 
 #[cfg(not(feature = "otel"))]
-fn set_up_logging() -> redis_demo::Result<()> {
+fn set_up_logging() -> redis_lib::Result<()> {
     // See https://docs.rs/tracing for more info
     tracing_subscriber::fmt::try_init()
 }

@@ -4,6 +4,9 @@
 //! * `cmd`: implementations of the supported Redis commands.
 //! * `frame`: represents a single Redis protocol frame.  
 
+#![warn(clippy::pedantic)]
+#![warn(clippy::cargo)] 
+
 pub mod clients;
 pub use clients::{BlockingClient, BufferedClient, Client};
 

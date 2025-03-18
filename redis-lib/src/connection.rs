@@ -73,9 +73,8 @@ impl Connection {
                 // sending a frame.
                 if self.buffer.is_empty() {
                     return Ok(None);
-                } else {
-                    return Err("connection reset by peer".into());
                 }
+                return Err("connection reset by peer".into());
             }
         }
     }

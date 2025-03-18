@@ -70,7 +70,7 @@ The project demonstrates a number of useful patterns, including:
 
 ### TCP server
 
-[`server.rs`](src/server.rs) starts a TCP server that accepts connections,
+[`server.rs`](redis-lib/src/server.rs) starts a TCP server that accepts connections,
 and spawns a new task per connection. It gracefully handles `accept` errors.
 
 ### Client library
@@ -84,11 +84,11 @@ The server maintains a [`Db`] instance that is accessible from all connected
 connections. The [`Db`] instance manages the key-value state as well as pub/sub
 capabilities.
 
-[`Db`]: src/db.rs
+[`Db`]: redis-lib/src/db.rs
 
 ### Framing
 
-[`connection.rs`](src/connection.rs) and [`frame.rs`](src/frame.rs) show how to
+[`connection.rs`](redis-lib/src/connection.rs) and [`frame.rs`](redis-lib/src/frame.rs) show how to
 idiomatically implement a wire protocol. The protocol is modeled using an
 intermediate representation, the `Frame` structure. `Connection` takes a
 `TcpStream` and exposes an API that sends and receives `Frame` values.
@@ -124,7 +124,7 @@ the server to update the active subscriptions.
 ### Using a `std::sync::Mutex` in an async application
 
 The server uses a `std::sync::Mutex` and **not** a Tokio mutex to synchronize
-access to shared state. See [`db.rs`](src/db.rs) for more details.
+access to shared state. See [`db.rs`](redis-lib/src/db.rs) for more details.
 
 ### Testing asynchronous code that relies on time
 
