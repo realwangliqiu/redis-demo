@@ -3,14 +3,13 @@ authors = ["realwangliqiu <realwangliqiu@proton.me>"]
 edition = "2021"
 name = "redis-demo"
 rust-version = "1.85"
-version = "0.4.1"
+version = "0.0.1"
 license = "MIT"
 readme = "README.md"
-documentation = "https://docs.rs/mini-redis/0.4.0/mini-redis/"
-repository = "https://github.com/tokio-rs/mini-redis"
+#documentation = "https://github.com/realwangliqiu/redis-demo"
+repository = "https://github.com/realwangliqiu/redis-demo"
 description = """
-An incomplete implementation of a Rust client and server. Used as a
-larger example of an idiomatic Tokio application.
+ redis-demo
 """
 
 [[bin]]

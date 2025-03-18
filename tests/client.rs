@@ -1,4 +1,4 @@
-use mini_redis::{clients::Client, server};
+use redis_demo::{clients::Client, server};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;

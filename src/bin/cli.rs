@@ -1,4 +1,4 @@
-use mini_redis::{clients::Client, DEFAULT_PORT};
+use redis_demo::{clients::Client, DEFAULT_PORT};
 
 use bytes::Bytes;
 use clap::{Parser, Subcommand};
@@ -7,12 +7,7 @@ use std::str;
 use std::time::Duration;
 
 #[derive(Parser, Debug)]
-#[command(
-    name = "redis-cli",
-    version,
-    author,
-    about = "Issue Redis commands"
-)]
+#[command(name = "redis-cli", version, author, about = "Issue Redis commands")]
 struct Cli {
     #[clap(subcommand)]
     command: Command,
@@ -72,7 +67,7 @@ enum Command {
 /// threads. The CLI tool use case benefits more by being lighter instead of
 /// multi-threaded.
 #[tokio::main(flavor = "current_thread")]
-async fn main() -> mini_redis::Result<()> {
+async fn main() -> redis_demo::Result<()> {
     // Enable logging
     tracing_subscriber::fmt::try_init()?;
 

@@ -1,4 +1,4 @@
-use mini_redis::{
+use redis_demo::{
     clients::{BufferedClient, Client},
     server,
 };
