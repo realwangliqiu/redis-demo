@@ -52,7 +52,7 @@ pub enum Error {
 }
 
 impl Frame {
-    /// Checks if an entire message can be decoded from `src`
+    /// Checks if `src` can be decoded.
     pub fn check(src: &mut Cursor<&[u8]>) -> Result<(), Error> {
         match get_u8(src)? {
             b'+' => {
@@ -88,46 +88,37 @@ impl Frame {
 
                 Ok(())
             }
-            actual => Err(format!("protocol error; invalid frame type byte `{}`", actual).into()),
+            other => Err(format!("protocol error; invalid frame type byte `{}`", other).into()),
         }
     }
 
-    /// The message has already been validated with `check`.
     pub fn parse(src: &mut Cursor<&[u8]>) -> Result<Frame, Error> {
         match get_u8(src)? {
             b'+' => {
-                // Read the line and convert it to `Vec<u8>`
                 let line = get_line(src)?.to_vec();
-
-                // Convert the line to a String
                 let string = String::from_utf8(line)?;
 
                 Ok(Frame::Simple(string))
             }
             b'-' => {
-                // Read the line and convert it to `Vec<u8>`
                 let line = get_line(src)?.to_vec();
-
-                // Convert the line to a String
                 let string = String::from_utf8(line)?;
 
                 Ok(Frame::Error(string))
             }
             b':' => {
                 let len = get_decimal(src)?;
+
                 Ok(Frame::Integer(len))
             }
             b'$' => {
                 if b'-' == peek_u8(src)? {
-                    let line = get_line(src)?;
-
-                    if line != b"-1" {
+                    if get_line(src)? != b"-1" {
                         return Err("protocol error; invalid frame format".into());
                     }
 
                     Ok(Frame::Null)
                 } else {
-                    // Read the bulk string
                     let len = get_decimal(src)?.try_into()?;
                     let n = len + 2;
 
@@ -136,7 +127,6 @@ impl Frame {
                     }
 
                     let data = Bytes::copy_from_slice(&src.chunk()[..len]);
-
                     // skip that number of bytes + 2 (\r\n).
                     skip(src, n)?;
 
@@ -157,7 +147,6 @@ impl Frame {
         }
     }
 
-    /// Converts the frame to an "unexpected frame" error
     pub(crate) fn to_error(&self) -> crate::Error {
         format!("unexpected frame: {}", self).into()
     }
@@ -178,22 +167,22 @@ impl fmt::Display for Frame {
         use std::str;
 
         match self {
-            Frame::Simple(response) => response.fmt(fmt),
+            Frame::Simple(string) => string.fmt(fmt),
             Frame::Error(msg) => write!(fmt, "error: {}", msg),
             Frame::Integer(num) => num.fmt(fmt),
-            Frame::Bulk(msg) => match str::from_utf8(msg) {
+            Frame::Bulk(bytes) => match str::from_utf8(bytes) {
                 Ok(string) => string.fmt(fmt),
-                Err(_) => write!(fmt, "{:?}", msg),
+                Err(_) => write!(fmt, "{:?}", bytes),
             },
             Frame::Null => "(nil)".fmt(fmt),
-            Frame::Array(parts) => {
-                for (i, part) in parts.iter().enumerate() {
+            Frame::Array(frames) => {
+                for (i, frame) in frames.iter().enumerate() {
                     if i > 0 {
                         // use space as the array element display separator
                         write!(fmt, " ")?;
                     }
 
-                    part.fmt(fmt)?;
+                    frame.fmt(fmt)?;
                 }
 
                 Ok(())
@@ -210,6 +199,7 @@ fn peek_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
     Ok(src.chunk()[0])
 }
 
+/// guarantee `Buf::get_u8` SAFETY  
 fn get_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
     if !src.has_remaining() {
         return Err(Error::Incomplete);
@@ -227,7 +217,7 @@ fn skip(src: &mut Cursor<&[u8]>, n: usize) -> Result<(), Error> {
     Ok(())
 }
 
-/// Read a new-line terminated decimal
+/// Read a new-line, advance the cursor to the next line.
 fn get_decimal(src: &mut Cursor<&[u8]>) -> Result<u64, Error> {
     use atoi::atoi;
 
@@ -236,19 +226,17 @@ fn get_decimal(src: &mut Cursor<&[u8]>) -> Result<u64, Error> {
     atoi::<u64>(line).ok_or_else(|| "protocol error; invalid frame format".into())
 }
 
-/// Find a line
+/// advance the cursor to the next line.
 fn get_line<'a>(src: &mut Cursor<&'a [u8]>) -> Result<&'a [u8], Error> {
-    // Scan the bytes directly
     let start = src.position() as usize;
-    // Scan to the second to last byte
-    let end = src.get_ref().len() - 1;
+    let len = src.get_ref().len();
 
-    for i in start..end {
+    // Scan to the second to last byte
+    for i in start..len - 1 {
         if src.get_ref()[i] == b'\r' && src.get_ref()[i + 1] == b'\n' {
-            // We found a line, update the position to be *after* the \n
+            // advance the cursor to the next line
             src.set_position((i + 2) as u64);
 
-            // Return the line
             return Ok(&src.get_ref()[start..i]);
         }
     }
