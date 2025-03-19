@@ -1,10 +1,9 @@
-//! Minimal Redis client implementation
+//! Redis client implementation
 //!
 //! Provides an async connect and methods for issuing the supported commands.
 
 use crate::cmd::{Get, Ping, Protocol, Publish, Set, Subscribe, Unsubscribe};
-use crate::{Connection, Frame};
-
+use crate::{Connection, Frame}; 
 use async_stream::try_stream;
 use bytes::Bytes;
 use std::io::{Error, ErrorKind};
@@ -13,21 +12,10 @@ use tokio::net::{TcpStream, ToSocketAddrs};
 use tokio_stream::Stream;
 use tracing::{debug, instrument};
 
-/// Established connection with a Redis server.
-///
-/// Backed by a single `TcpStream`, `Client` provides basic network client
-/// functionality (no pooling, retrying, ...). Connections are established using
-/// the [`connect`](fn@connect) function.
-///
-/// Requests are issued using the various methods of `Client`.
+/// Backed by a single `TcpStream`.
 pub struct Client {
-    /// The TCP connection decorated with the redis protocol encoder / decoder
-    /// implemented using a buffered `TcpStream`.
-    ///
     /// When `Listener` receives an inbound connection, the `TcpStream` is
     /// passed to `Connection::new`, which initializes the associated buffers.
-    /// `Connection` allows the handler to operate at the "frame" level and keep
-    /// the byte level protocol parsing details encapsulated in `Connection`.
     connection: Connection,
 }
 
@@ -37,10 +25,7 @@ pub struct Client {
 /// commands. The `Client` type is transitioned to a `Subscriber` type in order
 /// to prevent non-pub/sub methods from being called.
 pub struct Subscriber {
-    /// The subscribed client.
     client: Client,
-
-    /// The set of channels to which the `Subscriber` is currently subscribed.
     subscribed_channels: Vec<String>,
 }
 
@@ -53,36 +38,9 @@ pub struct Message {
 
 impl Client {
     /// Establish a connection with the Redis server located at `addr`.
-    ///
-    /// `addr` may be any type that can be asynchronously converted to a
-    /// `SocketAddr`. This includes `SocketAddr` and strings. The `ToSocketAddrs`
-    /// trait is the Tokio version and not the `std` version.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use mini_redis::clients::Client;
-    ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let client = match Client::connect("localhost:6379").await {
-    ///         Ok(client) => client,
-    ///         Err(_) => panic!("failed to establish connection"),
-    ///     };
-    /// # drop(client);
-    /// }
-    /// ```
-    ///
-    pub async fn connect<T: ToSocketAddrs>(addr: T) -> crate::Result<Client> {
-        // The `addr` argument is passed directly to `TcpStream::connect`. This
-        // performs any asynchronous DNS lookup and attempts to establish the TCP
-        // connection. An error at either step returns an error, which is then
-        // bubbled up to the caller of `mini_redis` connect.
-        let socket = TcpStream::connect(addr).await?;
-
-        // Initialize the connection state. This allocates read/write buffers to
-        // perform redis protocol frame parsing.
-        let connection = Connection::new(socket);
+    pub async fn connect<T: ToSocketAddrs>(addr: T) -> crate::Result<Client> { 
+        let stream = TcpStream::connect(addr).await?;
+        let connection = Connection::new(stream);
 
         Ok(Client { connection })
     }
@@ -104,24 +62,10 @@ impl Client {
     }
 
     /// Get the value of key.
-    ///
+    /// 
+    /// # return
+    /// 
     /// If the key does not exist the special value `None` is returned.
-    ///
-    /// # Examples
-    ///
-    /// Demonstrates basic usage.
-    ///
-    /// ```no_run
-    /// use mini_redis::clients::Client;
-    ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let mut client = Client::connect("localhost:6379").await.unwrap();
-    ///
-    ///     let val = client.get("foo").await.unwrap();
-    ///     println!("Got = {:?}", val);
-    /// }
-    /// ```
     #[instrument(skip(self))]
     pub async fn get(&mut self, key: &str) -> crate::Result<Option<Bytes>> {
         // Create a `Get` command for the `key` and convert it to a frame.
@@ -147,107 +91,43 @@ impl Client {
 
     /// Set `key` to hold the given `value`.
     ///
-    /// The `value` is associated with `key` until it is overwritten by the next
-    /// call to `set` or it is removed.
-    ///
     /// If key already holds a value, it is overwritten. Any previous time to
-    /// live associated with the key is discarded on successful SET operation.
-    ///
-    /// # Examples
-    ///
-    /// Demonstrates basic usage.
-    ///
-    /// ```no_run
-    /// use redis_lib::clients::Client;
-    ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let mut client = Client::connect("localhost:6379").await.unwrap();
-    ///
-    ///     client.set("foo", "bar".into()).await.unwrap();
-    ///
-    ///     // Getting the value immediately works
-    ///     let val = client.get("foo").await.unwrap().unwrap();
-    ///     assert_eq!(val, "bar");
-    /// }
-    /// ```
+    /// live associated with the key is discarded on successful SET operation. 
     #[instrument(skip(self))]
-    pub async fn set(&mut self, key: &str, value: Bytes) -> crate::Result<()> {
-        // Create a `Set` command and pass it to `set_cmd`. A separate method is
-        // used to set a value with an expiration. The common parts of both
-        // functions are implemented by `set_cmd`.
+    pub async fn set(&mut self, key: &str, value: Bytes) -> crate::Result<()> { 
         self.set_cmd(Set::new(key, value, None)).await
     }
 
     /// Set `key` to hold the given `value`. The value expires after `expiration`
-    ///
-    /// The `value` is associated with `key` until one of the following:
-    /// - it expires.
-    /// - it is overwritten by the next call to `set`.
-    /// - it is removed.
-    ///
+    /// 
     /// If key already holds a value, it is overwritten. Any previous time to
     /// live associated with the key is discarded on a successful SET operation.
     ///
-    /// # Examples
+    /// # Note
     ///
-    /// Demonstrates basic usage. This example is not **guaranteed** to always
-    /// work as it relies on time based logic and assumes the client and server
-    /// stay relatively synchronized in time. The real world tends to not be so
-    /// favorable.
-    ///
-    /// ```no_run
-    /// use mini_redis::clients::Client;
-    /// use tokio::time;
-    /// use std::time::Duration;
-    ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let ttl = Duration::from_millis(500);
-    ///     let mut client = Client::connect("localhost:6379").await.unwrap();
-    ///
-    ///     client.set_expires("foo", "bar".into(), ttl).await.unwrap();
-    ///
-    ///     // Getting the value immediately works
-    ///     let val = client.get("foo").await.unwrap().unwrap();
-    ///     assert_eq!(val, "bar");
-    ///
-    ///     // Wait for the TTL to expire
-    ///     time::sleep(ttl).await;
-    ///
-    ///     let val = client.get("foo").await.unwrap();
-    ///     assert!(val.is_some());
-    /// }
-    /// ```
+    /// This function assumes the client and server stay relatively synchronized in time. 
+    /// The real world tends to not be so favorable.
     #[instrument(skip(self))]
     pub async fn set_expires(
         &mut self,
         key: &str,
         value: Bytes,
         expiration: Duration,
-    ) -> crate::Result<()> {
-        // Create a `Set` command and pass it to `set_cmd`. A separate method is
-        // used to set a value with an expiration. The common parts of both
-        // functions are implemented by `set_cmd`.
+    ) -> crate::Result<()> { 
         self.set_cmd(Set::new(key, value, Some(expiration))).await
     }
 
-    /// The core `SET` logic, used by both `set` and `set_expires.
-    async fn set_cmd(&mut self, cmd: Set) -> crate::Result<()> {
-        // Convert the `Set` command into a frame
-        let frame = cmd.into_frame();
-
+    /// The core `SET` logic. 
+    async fn set_cmd(&mut self, cmd: Set) -> crate::Result<()> { 
+        let frame = cmd.into_frame(); 
         debug!(request = ?frame);
-
-        // Write the frame to the socket. This writes the full frame to the
-        // socket, waiting if necessary.
+ 
         self.connection.write_frame(&frame).await?;
 
-        // Wait for the response from the server. On success, the server
-        // responds simply with `OK`. Any other response indicates an error.
+        // Wait for the response from the server.
         match self.read_response().await? {
-            Frame::Simple(response) if response == "OK" => Ok(()),
-            frame => Err(frame.to_error()),
+            Frame::Simple(s) if s == "OK" => Ok(()),
+            other => Err(other.to_error()),
         }
     }
 
@@ -256,22 +136,7 @@ impl Client {
     /// Returns the number of subscribers currently listening on the channel.
     /// There is no guarantee that these subscribers receive the message as they
     /// may disconnect at any time.
-    ///
-    /// # Examples
-    ///
-    /// Demonstrates basic usage.
-    ///
-    /// ```no_run
-    /// use mini_redis::clients::Client;
-    ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let mut client = Client::connect("localhost:6379").await.unwrap();
-    ///
-    ///     let val = client.publish("foo", "bar".into()).await.unwrap();
-    ///     println!("Got = {:?}", val);
-    /// }
-    /// ```
+    /// 
     #[instrument(skip(self))]
     pub async fn publish(&mut self, channel: &str, message: Bytes) -> crate::Result<u64> {
         // Convert the `Publish` command into a frame
