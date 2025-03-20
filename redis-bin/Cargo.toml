@@ -32,6 +32,8 @@ tokio.workspace =  true
 tokio-stream = "0.1"
 tracing.workspace = true
 tracing-subscriber.workspace = true
+console-subscriber = "0.4"
+
 # Implements the types defined in the OTel spec
 opentelemetry = { version = "0.28.0", optional = true }
 # Integration between the tracing crate and the opentelemetry crate

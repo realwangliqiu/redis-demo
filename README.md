@@ -1,21 +1,15 @@
-# mini-redis
-mini-http ???
+# redis-demo
+ 
 ## Running
  
 Start the server:
 
 ```
 cargo run --bin redis-server
+
 cargo run --bin redis-server -- --help
 ```
   
-Then, in a different terminal window, the various client [examples](examples)
-can be executed. For example:
-
-```
-cargo run --example hello_world
-```
-
 Start the CLI client:
 
 ```
