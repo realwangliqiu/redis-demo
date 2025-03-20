@@ -1,10 +1,17 @@
-use redis_demo::{clients::Client, server};
+use redis_lib::{clients::Client, server};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
-/// A PING PONG test without message provided.
-/// It should return "PONG".
+async fn start_server() -> (SocketAddr, JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    let handle = tokio::spawn(async move { server::run(listener, tokio::signal::ctrl_c()).await });
+
+    (addr, handle)
+}
+
 #[tokio::test]
 async fn ping_pong_without_message() {
     let (addr, _) = start_server().await;
@@ -14,20 +21,15 @@ async fn ping_pong_without_message() {
     assert_eq!(b"PONG", &pong[..]);
 }
 
-/// A PING PONG test with message provided.
-/// It should return the message.
 #[tokio::test]
 async fn ping_pong_with_message() {
     let (addr, _) = start_server().await;
     let mut client = Client::connect(addr).await.unwrap();
 
-    let pong = client.ping(Some("你好世界".into())).await.unwrap();
-    assert_eq!("你好世界".as_bytes(), &pong[..]);
+    let pong = client.ping(Some("hello, world".into())).await.unwrap();
+    assert_eq!("hello, world".as_bytes(), &pong[..]);
 }
 
-/// A basic "hello world" style test. A server instance is started in a
-/// background task. A client instance is then established and set and get
-/// commands are sent to the server. The response is then evaluated
 #[tokio::test]
 async fn key_value_get_set() {
     let (addr, _) = start_server().await;
@@ -39,8 +41,6 @@ async fn key_value_get_set() {
     assert_eq!(b"world", &value[..])
 }
 
-/// similar to the "hello world" style test, But this time
-/// a single channel subscription will be tested instead
 #[tokio::test]
 async fn receive_message_subscribed_channel() {
     let (addr, _) = start_server().await;
@@ -102,13 +102,4 @@ async fn unsubscribes_from_channels() {
 
     subscriber.unsubscribe(&[]).await.unwrap();
     assert_eq!(subscriber.get_subscribed().len(), 0);
-}
-
-async fn start_server() -> (SocketAddr, JoinHandle<()>) {
-    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let addr = listener.local_addr().unwrap();
-
-    let handle = tokio::spawn(async move { server::run(listener, tokio::signal::ctrl_c()).await });
-
-    (addr, handle)
 }

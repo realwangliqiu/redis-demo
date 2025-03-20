@@ -3,12 +3,25 @@
 //! * `client`:    
 //! * `cmd`: implementations of the supported Redis commands.
 //! * `frame`: represents a single Redis protocol frame.  
+//!
+//!
+//! # Supported commands
+//!
+//! * [PING](https://redis.io/commands/ping)
+//! * [GET](https://redis.io/commands/get)
+//! * [SET](https://redis.io/commands/set)
+//! * [PUBLISH](https://redis.io/commands/publish)
+//! * [SUBSCRIBE](https://redis.io/commands/subscribe)
+//!
+//!  
+//!
+//!
 
 #![warn(clippy::pedantic)]
 #![warn(clippy::cargo)]
 
 pub mod clients;
-pub use clients::{BufferedClient, Client};
+pub use clients::Client;
 
 pub mod cmd;
 pub use cmd::Command;

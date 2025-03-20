@@ -64,10 +64,8 @@ impl Client {
     /// 
     /// If the key does not exist the special value `None` is returned.
     #[instrument(skip(self))]
-    pub async fn get(&mut self, key: &str) -> Result<Option<Bytes>> {
-        // Create a `Get` command for the `key` and convert it to a frame.
+    pub async fn get(&mut self, key: &str) -> Result<Option<Bytes>> { 
         let frame = Get::new(key).into_frame();
-
         debug!(request = ?frame);
 
         // Write the frame to the socket. This writes the full frame to the
@@ -82,7 +80,7 @@ impl Client {
             Frame::Simple(value) => Ok(Some(value.into())),
             Frame::Bulk(value) => Ok(Some(value)),
             Frame::Null => Ok(None),
-            frame => Err(frame.to_error()),
+            other => Err(other.to_error()),
         }
     }
 
