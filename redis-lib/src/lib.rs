@@ -5,10 +5,10 @@
 //! * `frame`: represents a single Redis protocol frame.  
 
 #![warn(clippy::pedantic)]
-#![warn(clippy::cargo)] 
+#![warn(clippy::cargo)]
 
 pub mod clients;
-pub use clients::{BlockingClient, BufferedClient, Client};
+pub use clients::{BufferedClient, Client};
 
 pub mod cmd;
 pub use cmd::Command;

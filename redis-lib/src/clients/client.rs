@@ -4,13 +4,12 @@
 
 use crate::cmd::{Get, Ping, Protocol, Publish, Set, Subscribe, Unsubscribe};
 use crate::{Connection, Frame}; 
-use async_stream::try_stream;
 use bytes::Bytes;
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
 use tokio::net::{TcpStream, ToSocketAddrs};
-use tokio_stream::Stream;
 use tracing::{debug, instrument};
+use crate::Result;
 
 /// Backed by a single `TcpStream`.
 pub struct Client {
@@ -65,7 +64,7 @@ impl Client {
     /// 
     /// If the key does not exist the special value `None` is returned.
     #[instrument(skip(self))]
-    pub async fn get(&mut self, key: &str) -> crate::Result<Option<Bytes>> {
+    pub async fn get(&mut self, key: &str) -> Result<Option<Bytes>> {
         // Create a `Get` command for the `key` and convert it to a frame.
         let frame = Get::new(key).into_frame();
 
@@ -92,7 +91,7 @@ impl Client {
     /// If key already holds a value, it is overwritten. Any previous time to
     /// live associated with the key is discarded on successful SET operation. 
     #[instrument(skip(self))]
-    pub async fn set(&mut self, key: &str, value: Bytes) -> crate::Result<()> { 
+    pub async fn set(&mut self, key: &str, value: Bytes) -> Result<()> { 
         self.set_cmd(Set::new(key, value, None)).await
     }
 
@@ -111,12 +110,12 @@ impl Client {
         key: &str,
         value: Bytes,
         expiration: Duration,
-    ) -> crate::Result<()> { 
+    ) -> Result<()> { 
         self.set_cmd(Set::new(key, value, Some(expiration))).await
     }
 
     /// The core `SET` logic. 
-    async fn set_cmd(&mut self, cmd: Set) -> crate::Result<()> { 
+    async fn set_cmd(&mut self, cmd: Set) -> Result<()> { 
         let frame = cmd.into_frame(); 
         debug!(request = ?frame);
  
@@ -135,7 +134,7 @@ impl Client {
     /// 
     /// Returns the number of subscribers currently listening on the channel.
     #[instrument(skip(self))]
-    pub async fn publish(&mut self, channel: &str, message: Bytes) -> crate::Result<u64> { 
+    pub async fn publish(&mut self, channel: &str, message: Bytes) -> Result<u64> { 
         let frame = Publish::new(channel, message).into_frame();
         debug!(request = ?frame);
  
@@ -153,7 +152,7 @@ impl Client {
     /// Once a client issues a subscribe command, it may no longer issue any
     /// non-pub/sub commands. The function consumes `self` and returns a `Subscriber`.
     #[instrument(skip(self))]
-    pub async fn subscribe(mut self, channels: Vec<String>) -> crate::Result<Subscriber> { 
+    pub async fn subscribe(mut self, channels: Vec<String>) -> Result<Subscriber> { 
         self.do_subscribe(&channels).await?;
  
         Ok(Subscriber {
@@ -162,7 +161,7 @@ impl Client {
         })
     }
  
-    async fn do_subscribe(&mut self, channels: &[String]) -> crate::Result<()> {
+    async fn do_subscribe(&mut self, channels: &[String]) -> Result<()> {
         let frame = Subscribe::new(channels.to_vec()).into_frame();
         debug!(request = ?frame);
  
@@ -192,7 +191,7 @@ impl Client {
     /// Reads a response frame from the socket.
     ///
     /// If an `Error` frame is received, it is converted to `Err`.
-    async fn read_response(&mut self) -> crate::Result<Frame> {
+    async fn read_response(&mut self) -> Result<Frame> {
         let response = self.connection.read_frame().await?;
         debug!(?response);
 
@@ -217,7 +216,7 @@ impl Subscriber {
     /// Receive the next message published on a subscribed channel, waiting if necessary.
     ///
     /// `None` indicates the subscription has been terminated.
-    pub async fn next_message(&mut self) -> crate::Result<Option<Message>> {
+    pub async fn next_message(&mut self) -> Result<Option<Message>> {
         match self.client.connection.read_frame().await? {
             Some(frame) => {
                 debug!(?frame);
@@ -236,53 +235,27 @@ impl Subscriber {
             None => Ok(None),
         }
     }
-
-    /// Convert the subscriber into a `Stream` yielding new messages published
-    /// on subscribed channels.
-    ///
-    /// `Subscriber` does not implement stream itself as doing so with safe code
-    /// is non trivial. The usage of async/await would require a manual Stream
-    /// implementation to use `unsafe` code. Instead, a conversion function is
-    /// provided and the returned stream is implemented with the help of the
-    /// `async-stream` crate.
-    pub fn into_stream(mut self) -> impl Stream<Item = crate::Result<Message>> {
-        // Uses the `try_stream` macro from the `async-stream` crate. Generators
-        // are not stable in Rust. The crate uses a macro to simulate generators
-        // on top of async/await. There are limitations, so read the
-        // documentation there.
-        try_stream! {
-            while let Some(message) = self.next_message().await? {
-                yield message;
-            }
-        }
-    }
-
-    /// Subscribe to a list of new channels
+ 
+    /// Subscribe channels
     #[instrument(skip(self))]
-    pub async fn subscribe(&mut self, channels: &[String]) -> crate::Result<()> {
-        // Issue the subscribe command
-        self.client.do_subscribe(channels).await?;
-
-        // Update the set of subscribed channels.
+    pub async fn subscribe(&mut self, channels: &[String]) -> Result<()> { 
+        self.client.do_subscribe(channels).await?; 
         self.subscribed_channels
             .extend(channels.iter().map(Clone::clone));
 
         Ok(())
     }
 
-    /// Unsubscribe to a list of new channels
+    /// Unsubscribe channels
     #[instrument(skip(self))]
-    pub async fn unsubscribe(&mut self, channels: &[String]) -> crate::Result<()> {
+    pub async fn unsubscribe(&mut self, channels: &[String]) -> Result<()> {
         let frame = Unsubscribe::new(channels).into_frame();
-
         debug!(request = ?frame);
-
-        // Write the frame to the socket
+ 
         self.client.connection.write_frame(&frame).await?;
 
         // if the input channel list is empty, server acknowledges as unsubscribing
-        // from all subscribed channels, so we assert that the unsubscribe list received
-        // matches the client subscribed one
+        // from all subscribed channels.
         let num = if channels.is_empty() {
             self.subscribed_channels.len()
         } else {
@@ -291,30 +264,25 @@ impl Subscriber {
 
         // Read the response
         for _ in 0..num {
-            let response = self.client.read_response().await?;
+            let resp_frame = self.client.read_response().await?;
 
-            match response {
-                Frame::Array(ref frame) => match frame.as_slice() {
+            match resp_frame {
+                Frame::Array(ref frames) => match frames.as_slice() {
                     [unsubscribe, channel, ..] if *unsubscribe == "unsubscribe" => {
                         let len = self.subscribed_channels.len();
-
                         if len == 0 {
-                            // There must be at least one channel
-                            return Err(response.to_error());
+                            return Err(resp_frame.to_error());
                         }
 
-                        // unsubscribed channel should exist in the subscribed list at this point
-                        self.subscribed_channels.retain(|c| *channel != &c[..]);
-
-                        // Only a single channel should be removed from the
-                        // list of subscribed channels.
+                        self.subscribed_channels.retain(|c| *channel != &c); 
+                        // Only a single channel should be removed from subscribed_channels.
                         if self.subscribed_channels.len() != len - 1 {
-                            return Err(response.to_error());
+                            return Err(resp_frame.to_error());
                         }
                     }
-                    _ => return Err(response.to_error()),
+                    _ => return Err(resp_frame.to_error()),
                 },
-                frame => return Err(frame.to_error()),
+                other => return Err(other.to_error()),
             };
         }
 
