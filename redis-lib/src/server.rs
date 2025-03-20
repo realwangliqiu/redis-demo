@@ -26,23 +26,14 @@ struct Listener {
     limit_connections: Arc<Semaphore>,
 
     /// Broadcasts a shutdown signal to all active connections.
-    ///
-    /// The initial `shutdown` trigger is provided by the `run` caller. The
-    /// server is responsible for gracefully shutting down active connections.
-    /// When a connection task is spawned, it is passed a broadcast receiver
-    /// handle. When a graceful shutdown is initiated, a `()` value is sent via
-    /// the broadcast::Sender. Each active connection receives it, reaches a
-    /// safe terminal state, and completes the task.
+    /// 
+    /// When shutdown is initiated, a `()` value is sent via the broadcast::Sender. 
     notify_shutdown: broadcast::Sender<()>,
 
     /// Used as part of the graceful shutdown process to wait for client
     /// connections to complete processing.
     ///
-    /// Tokio channels are closed once all `Sender` handles go out of scope.
-    /// When a channel is closed, the receiver receives `None`. When a
-    /// connection handler is initialized, it is assigned a clone of
-    /// `shutdown_complete_tx`. When the listener shuts down, it drops the
-    /// sender held by this `shutdown_complete_tx` field. Once all handler tasks
+    /// Once all handler tasks
     /// complete, all clones of the `Sender` are also dropped. This results in
     /// `shutdown_complete_rx.recv()` completing with `None`. At this point, it
     /// is safe to exit the server process.
@@ -52,23 +43,14 @@ struct Listener {
 /// Per-connection handler. Reads requests from `connection` and applies the commands to `db`.
 #[derive(Debug)]
 struct Handler {
-    db: Db,
-
-    /// `Connection` allows the handler to operate at the "frame" level.
+    db: Db, 
+    
     connection: Connection,
-
-    /// Listen for shutdown notifications.
-    ///
-    /// A wrapper around the `broadcast::Receiver` paired with the sender in
-    /// `Listener`. The connection handler processes requests from the
-    /// connection until the peer disconnects **or** a shutdown notification is
-    /// received from `shutdown`. In the latter case, any in-flight work being
+ 
+    /// If a shutdown notification is received from `shutdown`. any in-flight work being
     /// processed for the peer is continued until it reaches a safe state, at
     /// which point the connection is terminated.
-    shutdown: Shutdown,
-
-    /// Not used directly. 
-    _shutdown_complete: mpsc::Sender<()>,
+    shutdown: Shutdown, 
 }
 
 /// spawn a task to handle each inbound tcp connection. The server runs until the
@@ -203,10 +185,7 @@ impl Listener {
 
                 // Receive shutdown notifications.
                 shutdown: Shutdown::new(self.notify_shutdown.subscribe()),
-
-                // Notifies the receiver half once all clones are
-                // dropped.
-                _shutdown_complete: self.shutdown_complete_tx.clone(),
+ 
             };
 
             // Spawn a new task to process the connections. Tokio tasks are like
