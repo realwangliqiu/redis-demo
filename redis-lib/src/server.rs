@@ -10,7 +10,6 @@ use tokio::sync::{broadcast, mpsc, Semaphore};
 use tokio::time::{self, Duration};
 use tracing::{debug, error, info, instrument};
 
-/// Maximum number of concurrent connections the redis server will accept.
 const MAX_CONNECTIONS: usize = 500;
 
 /// Server listener state. Created in the `run` call.
@@ -18,17 +17,12 @@ const MAX_CONNECTIONS: usize = 500;
 struct Listener {
     /// Shared database handle.
     ///
-    /// Contains the key / value store as well as the broadcast channels for
-    /// pub/sub.
-    ///
-    /// This holds a wrapper around an `Arc`. The internal `Db` can be
-    /// retrieved and passed into the per connection state (`Handler`).
+    /// Contains the key / value store as well as the broadcast channels for pub/sub.
     db_holder: DbDropGuard,
 
     /// supplied by the `run` caller.
     tcp_listener: TcpListener,
-
-    /// Limit the max number of connections.
+ 
     limit_connections: Arc<Semaphore>,
 
     /// Broadcasts a shutdown signal to all active connections.
@@ -45,8 +39,7 @@ struct Listener {
     /// connections to complete processing.
     ///
     /// Tokio channels are closed once all `Sender` handles go out of scope.
-    /// When a channel is closed, the receiver receives `None`. This is
-    /// leveraged to detect all connection handlers completing. When a
+    /// When a channel is closed, the receiver receives `None`. When a
     /// connection handler is initialized, it is assigned a clone of
     /// `shutdown_complete_tx`. When the listener shuts down, it drops the
     /// sender held by this `shutdown_complete_tx` field. Once all handler tasks
@@ -56,20 +49,12 @@ struct Listener {
     shutdown_complete_tx: mpsc::Sender<()>,
 }
 
-/// Per-connection handler. Reads requests from `connection` and applies the
-/// commands to `db`.
+/// Per-connection handler. Reads requests from `connection` and applies the commands to `db`.
 #[derive(Debug)]
 struct Handler {
-    /// Shared database handle.
     db: Db,
 
-    /// The TCP connection decorated with the redis protocol encoder / decoder
-    /// implemented using a buffered `TcpStream`.
-    ///
-    /// When `Listener` receives an inbound connection, the `TcpStream` is
-    /// passed to `Connection::new`, which initializes the associated buffers.
-    /// `Connection` allows the handler to operate at the "frame" level and keep
-    /// the byte level protocol parsing details encapsulated in `Connection`.
+    /// `Connection` allows the handler to operate at the "frame" level.
     connection: Connection,
 
     /// Listen for shutdown notifications.
@@ -82,7 +67,7 @@ struct Handler {
     /// which point the connection is terminated.
     shutdown: Shutdown,
 
-    /// Not used directly. Instead, when `Handler` is dropped...?
+    /// Not used directly. 
     _shutdown_complete: mpsc::Sender<()>,
 }
 

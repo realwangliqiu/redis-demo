@@ -14,8 +14,6 @@ use tracing::{debug, instrument};
 
 /// Backed by a single `TcpStream`.
 pub struct Client {
-    /// When `Listener` receives an inbound connection, the `TcpStream` is
-    /// passed to `Connection::new`, which initializes the associated buffers.
     connection: Connection,
 }
 
@@ -131,83 +129,60 @@ impl Client {
         }
     }
 
-    /// Posts `message` to the given `channel`.
-    ///
-    /// Returns the number of subscribers currently listening on the channel.
-    /// There is no guarantee that these subscribers receive the message as they
-    /// may disconnect at any time.
+    /// publish `message` to the given `channel`.
     /// 
+    /// # Return
+    /// 
+    /// Returns the number of subscribers currently listening on the channel.
     #[instrument(skip(self))]
-    pub async fn publish(&mut self, channel: &str, message: Bytes) -> crate::Result<u64> {
-        // Convert the `Publish` command into a frame
+    pub async fn publish(&mut self, channel: &str, message: Bytes) -> crate::Result<u64> { 
         let frame = Publish::new(channel, message).into_frame();
-
         debug!(request = ?frame);
-
-        // Write the frame to the socket
+ 
         self.connection.write_frame(&frame).await?;
 
-        // Read the response
+        // Read the response from server.
         match self.read_response().await? {
-            Frame::Integer(response) => Ok(response),
-            frame => Err(frame.to_error()),
+            Frame::Integer(num) => Ok(num),
+            other => Err(other.to_error()),
         }
     }
 
-    /// Subscribes the client to the specified channels.
+    /// Subscribes the client to the given channels.
     ///
     /// Once a client issues a subscribe command, it may no longer issue any
     /// non-pub/sub commands. The function consumes `self` and returns a `Subscriber`.
-    ///
-    /// The `Subscriber` value is used to receive messages as well as manage the
-    /// list of channels the client is subscribed to.
     #[instrument(skip(self))]
-    pub async fn subscribe(mut self, channels: Vec<String>) -> crate::Result<Subscriber> {
-        // Issue the subscribe command to the server and wait for confirmation.
-        // The client will then have been transitioned into the "subscriber"
-        // state and may only issue pub/sub commands from that point on.
-        self.subscribe_cmd(&channels).await?;
-
-        // Return the `Subscriber` type
+    pub async fn subscribe(mut self, channels: Vec<String>) -> crate::Result<Subscriber> { 
+        self.do_subscribe(&channels).await?;
+ 
         Ok(Subscriber {
             client: self,
             subscribed_channels: channels,
         })
     }
-
-    /// The core `SUBSCRIBE` logic, used by misc subscribe fns
-    async fn subscribe_cmd(&mut self, channels: &[String]) -> crate::Result<()> {
-        // Convert the `Subscribe` command into a frame
+ 
+    async fn do_subscribe(&mut self, channels: &[String]) -> crate::Result<()> {
         let frame = Subscribe::new(channels.to_vec()).into_frame();
-
         debug!(request = ?frame);
-
-        // Write the frame to the socket
+ 
         self.connection.write_frame(&frame).await?;
 
-        // For each channel being subscribed to, the server responds with a
-        // message confirming subscription to that channel.
-        for channel in channels {
-            // Read the response
-            let response = self.read_response().await?;
+        // For each channel being subscribed to, the server responds with a confirmation message.  
+        for channel in channels { 
+            let resp_frame = self.read_response().await?;
 
-            // Verify it is confirmation of subscription.
-            match response {
-                Frame::Array(ref frame) => match frame.as_slice() {
+            // Verify the server responds.
+            match resp_frame {
+                Frame::Array(ref frames) => match frames.as_slice() {
                     // The server responds with an array frame in the form of:
-                    //
-                    // ```
                     // [ "subscribe", channel, num-subscribed ]
-                    // ```
-                    //
-                    // where channel is the name of the channel and
-                    // num-subscribed is the number of channels that the client
-                    // is currently subscribed to.
-                    [subscribe, schannel, ..]
-                        if *subscribe == "subscribe" && *schannel == channel => {}
-                    _ => return Err(response.to_error()),
+                    // 
+                    [subscribe, channel_name, ..]
+                        if *subscribe == "subscribe" && *channel_name == channel => {}
+                    _ => return Err(resp_frame.to_error()),
                 },
-                frame => return Err(frame.to_error()),
+                other => return Err(other.to_error()),
             };
         }
 
@@ -219,17 +194,12 @@ impl Client {
     /// If an `Error` frame is received, it is converted to `Err`.
     async fn read_response(&mut self) -> crate::Result<Frame> {
         let response = self.connection.read_frame().await?;
-
         debug!(?response);
 
         match response {
-            // Error frames are converted to `Err`
             Some(Frame::Error(msg)) => Err(msg.into()),
             Some(frame) => Ok(frame),
             None => {
-                // Receiving `None` here indicates the server has closed the
-                // connection without sending a frame. This is unexpected and is
-                // represented as a "connection reset by peer" error.
                 let err = Error::new(ErrorKind::ConnectionReset, "connection reset by server");
 
                 Err(err.into())
@@ -244,24 +214,23 @@ impl Subscriber {
         &self.subscribed_channels
     }
 
-    /// Receive the next message published on a subscribed channel, waiting if
-    /// necessary.
+    /// Receive the next message published on a subscribed channel, waiting if necessary.
     ///
     /// `None` indicates the subscription has been terminated.
     pub async fn next_message(&mut self) -> crate::Result<Option<Message>> {
         match self.client.connection.read_frame().await? {
-            Some(mframe) => {
-                debug!(?mframe);
+            Some(frame) => {
+                debug!(?frame);
 
-                match mframe {
-                    Frame::Array(ref frame) => match frame.as_slice() {
+                match frame {
+                    Frame::Array(ref frames) => match frames.as_slice() {
                         [message, channel, content] if *message == "message" => Ok(Some(Message {
                             channel: channel.to_string(),
                             content: Bytes::from(content.to_string()),
                         })),
-                        _ => Err(mframe.to_error()),
+                        _ => Err(frame.to_error()),
                     },
-                    frame => Err(frame.to_error()),
+                    other => Err(other.to_error()),
                 }
             }
             None => Ok(None),
@@ -292,7 +261,7 @@ impl Subscriber {
     #[instrument(skip(self))]
     pub async fn subscribe(&mut self, channels: &[String]) -> crate::Result<()> {
         // Issue the subscribe command
-        self.client.subscribe_cmd(channels).await?;
+        self.client.do_subscribe(channels).await?;
 
         // Update the set of subscribed channels.
         self.subscribed_channels
