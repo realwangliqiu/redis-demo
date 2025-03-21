@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ master ]
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   build:
@@ -12,16 +15,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
-    - name: clippy
-      run: cargo clippy -- -W clippy::pedantic -D clippy::correctness
-    - name: Build with OTel feature
-      run: cargo build --verbose --features otel
-    - name: Run tests
-      run: cargo test --verbose
-    - name: Run tests with OTel feature
-      run: cargo test --verbose --features otel
-    - name: rustfmt
-      run: cargo fmt --all --check
+      - uses: actions/checkout@v4
+      - name: Build
+        run: cargo build --verbose
+      - name: clippy
+        run: cargo clippy -- -W clippy::pedantic -D clippy::correctness
+      - name: Run tests
+        run: cargo test --verbose
+      - name: rustfmt
+        run: cargo fmt --all --check
+
+ 
