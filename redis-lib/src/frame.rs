@@ -10,7 +10,7 @@ use std::num::TryFromIntError;
 use std::string::FromUtf8Error;
 
 /// A frame in the Redis protocol.
-/// 
+///
 /// Each entry in the `Frame` is a "token".
 #[derive(Clone, Debug)]
 pub enum Frame {
@@ -55,7 +55,7 @@ pub enum Error {
 
 impl Frame {
     /// Checks if `src` can be decoded.
-    /// 
+    ///
     /// advance the cursor until the end of the frame.
     pub fn check(src: &mut Cursor<&[u8]>) -> Result<(), Error> {
         match get_u8(src)? {

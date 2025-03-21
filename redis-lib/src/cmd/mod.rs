@@ -55,8 +55,8 @@ impl Command {
             }
         };
 
-        // If there is remaining `Frame`, this indicates an unexpected frame format, and error 
-        // would be returned. 
+        // If there is remaining `Frame`, this indicates an unexpected frame format, and error
+        // would be returned.
         parse.check_done()?;
 
         Ok(command)
@@ -100,7 +100,6 @@ impl Command {
         }
     }
 }
-
 
 pub trait Protocol {
     /// Converts the command into an equivalent `Frame`.

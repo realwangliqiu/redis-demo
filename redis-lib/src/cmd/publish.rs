@@ -1,17 +1,17 @@
-use crate::{Connection, Db, Frame, Parse};
 use crate::cmd::Protocol;
 use crate::frame::PushFrame;
+use crate::{Connection, Db, Frame, Parse};
 use bytes::Bytes;
-  
-/// Send a message into a specific channel. 
-/// Consumers may subscribe to channels in order to receive the messages. 
+
+/// Send a message into a specific channel.
+/// Consumers may subscribe to channels in order to receive the messages.
 #[derive(Debug)]
 pub struct Publish {
-    channel: String, 
+    channel: String,
     message: Bytes,
 }
 
-impl Publish { 
+impl Publish {
     pub(crate) fn new(channel: impl ToString, message: Bytes) -> Publish {
         Publish {
             channel: channel.to_string(),
@@ -19,7 +19,6 @@ impl Publish {
         }
     }
 
-    
     /// # Format
     ///
     /// Expects an array frame containing three entries.
@@ -27,16 +26,16 @@ impl Publish {
     /// ```text
     /// PUBLISH channel message
     /// ```
-    pub(crate) fn parse_frames(parse: &mut Parse) -> crate::Result<Publish> {  
-        let channel = parse.next_string()?; 
+    pub(crate) fn parse_frames(parse: &mut Parse) -> crate::Result<Publish> {
+        let channel = parse.next_string()?;
         let message = parse.next_bytes()?;
 
         Ok(Publish { channel, message })
     }
- 
+
     /// [apply]: crate::cmd::Command::apply
     pub(crate) async fn apply(self, db: &Db, dst: &mut Connection) -> crate::Result<()> {
-        // Calling `db.publish` dispatches the message into the appropriate channel. 
+        // Calling `db.publish` dispatches the message into the appropriate channel.
         let n_subscribers = db.publish(&self.channel, self.message);
         let frame = Frame::Integer(n_subscribers as u64);
 

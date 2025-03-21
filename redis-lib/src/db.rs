@@ -68,11 +68,11 @@ impl DbDropGuard {
 }
 
 impl Drop for DbDropGuard {
-    fn drop(&mut self) { 
+    fn drop(&mut self) {
         let mut state = self.db.shared.state.lock().unwrap();
-        state.shutdown = true; 
+        state.shutdown = true;
         drop(state);
-        
+
         self.db.shared.background_task.notify_one();
     }
 }
@@ -101,7 +101,7 @@ impl Db {
     /// Returns `None` if there is no value associated with the key. This may be
     /// due to never having assigned a value to the key or a previously assigned
     /// value expired.
-    pub(crate) fn get(&self, key: &str) -> Option<Bytes> { 
+    pub(crate) fn get(&self, key: &str) -> Option<Bytes> {
         let state = self.shared.state.lock().unwrap();
         // `Bytes::clone` is a shallow clone
         state.entries.get(key).map(|entry| entry.data.clone())
@@ -114,13 +114,13 @@ impl Db {
         let mut state = self.shared.state.lock().unwrap();
 
         // If this `set` becomes the key that expires **next**, the background
-        // task needs to be notified so it can update its state. 
+        // task needs to be notified so it can update its state.
         let mut notify = false;
 
-        let expires_at = expire.map(|duration| { 
-            let when = Instant::now() + duration; 
+        let expires_at = expire.map(|duration| {
+            let when = Instant::now() + duration;
             // Only notify the worker task if the newly inserted expiration is the
-            // **next** key to evict. 
+            // **next** key to evict.
             notify = state
                 .next_expiration()
                 .map(|expiration| expiration > when)
@@ -142,7 +142,7 @@ impl Db {
         // had an expiration time. The associated entry in the `expirations` map
         // must also be removed. This avoids leaking data.
         if let Some(prev) = prev {
-            if let Some(when) = prev.expires_at { 
+            if let Some(when) = prev.expires_at {
                 state.expirations.remove(&(when, key.clone()));
             }
         }
@@ -163,14 +163,14 @@ impl Db {
         use std::collections::hash_map::Entry;
 
         let mut state = self.shared.state.lock().unwrap();
- 
+
         match state.pub_sub.entry(key) {
             Entry::Occupied(e) => e.get().subscribe(),
-            // No broadcast channel exists yet, so create one. 
-            Entry::Vacant(e) => { 
+            // No broadcast channel exists yet, so create one.
+            Entry::Vacant(e) => {
                 let (tx, rx) = broadcast::channel(1024);
                 e.insert(tx);
-                
+
                 rx
             }
         }
@@ -187,7 +187,7 @@ impl Db {
             // of subscribers is returned. An error indicates there are no
             // receivers, in which case, `0` should be returned.
             .map(|tx| tx.send(value).unwrap_or(0))
-            // If there is no entry for the channel key, then there are no subscribers.  
+            // If there is no entry for the channel key, then there are no subscribers.
             .unwrap_or(0)
     }
 }
@@ -198,7 +198,7 @@ impl Shared {
     fn purge_expired_keys(&self) -> Option<Instant> {
         let mut state = self.state.lock().unwrap();
 
-        if state.shutdown { 
+        if state.shutdown {
             return None;
         }
 
@@ -223,7 +223,7 @@ impl Shared {
 
         None
     }
- 
+
     fn is_shutdown(&self) -> bool {
         self.state.lock().unwrap().shutdown
     }
@@ -244,7 +244,7 @@ impl State {
 /// state handle. If `shutdown` is set, terminate the task.
 async fn purge_expired_tasks(shared: Arc<Shared>) {
     while !shared.is_shutdown() {
-        // Purge all keys that are expired. 
+        // Purge all keys that are expired.
         if let Some(when) = shared.purge_expired_keys() {
             tokio::select! {
                 _ = time::sleep_until(when) => {}

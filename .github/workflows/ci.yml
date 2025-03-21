@@ -17,11 +17,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build
-        run: cargo build --verbose
+#        run: cargo build --verbose
+        run: cargo build
       - name: clippy
         run: cargo clippy -- -W clippy::pedantic -D clippy::correctness
       - name: Run tests
-        run: cargo test --verbose
+#        run: cargo test --verbose
+        run: cargo test  
       - name: rustfmt
         run: cargo fmt --all --check
 

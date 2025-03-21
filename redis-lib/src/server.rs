@@ -102,7 +102,7 @@ impl Listener {
             let socket = self.accept().await?;
 
             let db = self.db_holder.db();
-            let shutdown = Shutdown::new(self.shutdown_sender.subscribe()); 
+            let shutdown = Shutdown::new(self.shutdown_sender.subscribe());
             // Spawn a new task to process the connections.
             tokio::spawn(async move {
                 if let Err(err) = process(Connection::new(socket), db, shutdown).await {

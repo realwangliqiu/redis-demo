@@ -7,7 +7,6 @@ use crate::Frame;
 use bytes::Bytes;
 use std::{fmt, str, vec};
 
- 
 /// construct from `Frame::Array`
 #[derive(Debug)]
 pub(crate) struct Parse {
@@ -43,7 +42,7 @@ impl Parse {
     /// covert the next `Frame` as a string.
     pub(crate) fn next_string(&mut self) -> Result<String, ParseError> {
         match self.next()? {
-            // Both `Simple` and `Bulk` representation may be strings. 
+            // Both `Simple` and `Bulk` representation may be strings.
             Frame::Simple(s) => Ok(s),
             Frame::Bulk(bytes) => str::from_utf8(&bytes)
                 .map(|s| s.to_string())
@@ -59,7 +58,7 @@ impl Parse {
     /// covert the next `Frame` as raw bytes.
     pub(crate) fn next_bytes(&mut self) -> Result<Bytes, ParseError> {
         match self.next()? {
-            // Both `Simple` and `Bulk` representation may be raw bytes. 
+            // Both `Simple` and `Bulk` representation may be raw bytes.
             Frame::Simple(s) => Ok(Bytes::from(s.into_bytes())),
             Frame::Bulk(bytes) => Ok(bytes),
             frame => Err(format!(
@@ -86,7 +85,7 @@ impl Parse {
         }
     }
 
-    /// Check if there is any remaining unconsumed `Frame` in the `Parse`. 
+    /// Check if there is any remaining unconsumed `Frame` in the `Parse`.
     pub(crate) fn check_done(&mut self) -> Result<(), ParseError> {
         if self.frames.next().is_none() {
             Ok(())

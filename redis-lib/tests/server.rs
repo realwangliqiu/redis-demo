@@ -15,7 +15,7 @@ async fn start_server() -> SocketAddr {
 
 #[tokio::test]
 async fn key_value_get_set() {
-    let addr = start_server().await; 
+    let addr = start_server().await;
     let mut stream = TcpStream::connect(addr).await.unwrap();
 
     // Get a key, data is missing
@@ -58,12 +58,11 @@ async fn key_value_get_set() {
     assert_eq!(0, stream.read(&mut response).await.unwrap());
 }
 
- 
 #[tokio::test]
 async fn key_value_timeout() {
     time::pause();
 
-    let addr = start_server().await; 
+    let addr = start_server().await;
     let mut stream = TcpStream::connect(addr).await.unwrap();
 
     // Set a key
@@ -78,7 +77,7 @@ async fn key_value_timeout() {
     let mut response = [0; 5];
 
     // Read OK
-    stream.read_exact(&mut response).await.unwrap(); 
+    stream.read_exact(&mut response).await.unwrap();
     assert_eq!(b"+OK\r\n", &response);
 
     // Get the key, data is present
@@ -90,7 +89,7 @@ async fn key_value_timeout() {
     // Read "world" response
     let mut response = [0; 11];
 
-    stream.read_exact(&mut response).await.unwrap(); 
+    stream.read_exact(&mut response).await.unwrap();
     assert_eq!(b"$5\r\nworld\r\n", &response);
 
     // Wait for the key to expire

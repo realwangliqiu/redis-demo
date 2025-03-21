@@ -5,32 +5,31 @@
 #![warn(clippy::pedantic)]
 // #![warn(clippy::cargo)]
 
-use redis_lib::{server, DEFAULT_PORT};
+use redis_lib::{DEFAULT_PORT, server};
 
 use clap::Parser;
 use tokio::net::TcpListener;
 use tokio::signal;
- 
 
-#[cfg(feature = "otel")] 
+#[cfg(feature = "otel")]
 use opentelemetry::global;
-#[cfg(feature = "otel")] 
-use opentelemetry::sdk::trace as sdktrace; 
-#[cfg(feature = "otel")] 
+#[cfg(feature = "otel")]
+use opentelemetry::sdk::trace as sdktrace;
+#[cfg(feature = "otel")]
 // OpenTelemetry-specific types (such as `OpenTelemetryLayer`)
 use tracing_subscriber::{
-    fmt, layer::SubscriberExt, util::SubscriberInitExt, util::TryInitError, EnvFilter,
+    EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt, util::TryInitError,
 };
 
 /// cargo install --locked tokio-console
 ///
 /// build with: RUSTFLAGS=--cfg tokio_unstable
 ///
-/// tokio-console --lang en_US.UTF-8 
-fn console(){ 
+/// tokio-console --lang en_US.UTF-8
+fn console() {
     console_subscriber::init();
 }
- 
+
 #[tokio::main]
 pub async fn main() -> redis_lib::Result<()> {
     set_up_logging()?;
@@ -40,7 +39,7 @@ pub async fn main() -> redis_lib::Result<()> {
     // let port = cmd.port.unwrap_or(DEFAULT_PORT);
 
     let listener = TcpListener::bind(&format!("127.0.0.1:{}", cmd.port)).await?;
-     
+
     server::run(listener, signal::ctrl_c()).await;
 
     Ok(())
@@ -54,12 +53,12 @@ struct CliCommand {
 }
 
 #[cfg(not(feature = "otel"))]
-fn set_up_logging() -> redis_lib::Result<()> { 
+fn set_up_logging() -> redis_lib::Result<()> {
     tracing_subscriber::fmt::try_init()
 }
 
 #[cfg(feature = "otel")]
-fn set_up_logging() -> Result<(), TryInitError> { 
+fn set_up_logging() -> Result<(), TryInitError> {
     global::set_text_map_propagator(XrayPropagator::default());
 
     let tracer = opentelemetry_otlp::new_pipeline()

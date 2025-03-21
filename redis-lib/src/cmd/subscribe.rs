@@ -25,14 +25,14 @@ pub struct Unsubscribe {
     channels: Vec<String>,
 }
 
-/// Stream of messages. The stream receives messages from the `broadcast::Receiver`. 
+/// Stream of messages. The stream receives messages from the `broadcast::Receiver`.
 type Messages = Pin<Box<dyn Stream<Item = Bytes> + Send>>;
 
 impl Subscribe {
     pub(crate) fn new(channels: Vec<String>) -> Subscribe {
         Subscribe { channels }
     }
-  
+
     /// # Format
     ///
     /// Expects an array frame containing two or more entries.
@@ -42,13 +42,13 @@ impl Subscribe {
     /// ```
     pub(crate) fn parse_frames(parse: &mut Parse) -> crate::Result<Subscribe> {
         use ParseError::EndOfStream;
-   
+
         let mut channels = vec![parse.next_string()?];
-        
+
         loop {
-            match parse.next_string() { 
-                Ok(s) => channels.push(s), 
-                Err(EndOfStream) => break, 
+            match parse.next_string() {
+                Ok(s) => channels.push(s),
+                Err(EndOfStream) => break,
                 Err(err) => return Err(err.into()),
             }
         }
@@ -64,7 +64,7 @@ impl Subscribe {
         db: &Db,
         dst: &mut Connection,
         shutdown: &mut Shutdown,
-    ) -> crate::Result<()> {     
+    ) -> crate::Result<()> {
         // An individual client may subscribe to multiple channels and may
         // dynamically add and remove channels from its subscription set. To
         // handle this, a `StreamMap` is used to track active subscriptions.
@@ -138,7 +138,7 @@ async fn subscribe_to_channel(
     Ok(())
 }
 
-/// Handle a command received while inside `Subscribe::apply`. 
+/// Handle a command received while inside `Subscribe::apply`.
 /// Only `SUBSCRIBE` and `UNSUBSCRIBE` commands are permitted in this context.
 ///
 /// Any new subscriptions are appended to `subscribe_to` instead of modifying `subscriptions`.
@@ -147,18 +147,15 @@ async fn handle_command(
     subscribe_to: &mut Vec<String>,
     subscriptions: &mut StreamMap<String, Messages>,
     dst: &mut Connection,
-) -> crate::Result<()> { 
+) -> crate::Result<()> {
     match Command::from_frame(frame)? {
-        Command::Subscribe(subscribe) => { 
+        Command::Subscribe(subscribe) => {
             subscribe_to.extend(subscribe.channels.into_iter());
         }
         Command::Unsubscribe(mut unsubscribe) => {
-            // If no channels are specified, this requests unsubscribing from all channels. 
+            // If no channels are specified, this requests unsubscribing from all channels.
             if unsubscribe.channels.is_empty() {
-                unsubscribe.channels = subscriptions
-                    .keys()
-                    .map(|s| s.to_string())
-                    .collect();
+                unsubscribe.channels = subscriptions.keys().map(|s| s.to_string()).collect();
             }
 
             for channel in unsubscribe.channels {
@@ -175,7 +172,7 @@ async fn handle_command(
     }
     Ok(())
 }
- 
+
 fn make_subscribe_frame(channel: String, n_subs: usize) -> Frame {
     let mut response = vec![];
     response.push_bulk(Bytes::from_static(b"subscribe"));
@@ -184,7 +181,7 @@ fn make_subscribe_frame(channel: String, n_subs: usize) -> Frame {
 
     response.into()
 }
- 
+
 fn make_unsubscribe_frame(channel: String, n_subs: usize) -> Frame {
     let mut response = vec![];
     response.push_bulk(Bytes::from_static(b"unsubscribe"));
@@ -205,14 +202,13 @@ fn make_message_frame(channel: String, msg: Bytes) -> Frame {
     response.into()
 }
 
-impl Unsubscribe { 
+impl Unsubscribe {
     pub(crate) fn new(channels: &[String]) -> Unsubscribe {
         Unsubscribe {
             channels: channels.to_vec(),
         }
     }
 
-  
     /// # Format
     ///
     /// Expects an array frame containing at least one entry.
@@ -222,13 +218,13 @@ impl Unsubscribe {
     /// ```
     pub(crate) fn parse_frames(parse: &mut Parse) -> Result<Unsubscribe, ParseError> {
         use ParseError::EndOfStream;
- 
-        let mut channels = vec![]; 
-        
+
+        let mut channels = vec![];
+
         loop {
-            match parse.next_string() { 
-                Ok(s) => channels.push(s), 
-                Err(EndOfStream) => break, 
+            match parse.next_string() {
+                Ok(s) => channels.push(s),
+                Err(EndOfStream) => break,
                 Err(err) => return Err(err),
             }
         }

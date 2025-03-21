@@ -103,11 +103,11 @@ impl Protocol for Set {
         frame.push_bulk(Bytes::from("set".as_bytes()));
         frame.push_bulk(Bytes::from(self.key.into_bytes()));
         frame.push_bulk(self.value);
-        if let Some(ms) = self.expire {  
+        if let Some(ms) = self.expire {
             frame.push_bulk(Bytes::from("px".as_bytes()));
             frame.push_int(ms.as_millis() as u64);
         }
-        
+
         frame.into()
     }
 }

@@ -76,7 +76,7 @@ async fn main() -> redis_lib::Result<()> {
         }
         Command::Set {
             key,
-            value, 
+            value,
             expires: None,
         } => {
             client.set(&key, value).await?;

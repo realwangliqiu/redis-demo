@@ -4,24 +4,23 @@ use std::io::{self, Cursor};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::TcpStream;
 
- 
 /// `Connection` is to read(receive) and write(Send) `Frame` on the underlying `TcpStream`.
 ///
 /// `read_buf` is filled up until there are enough bytes to create a full frame. Once this happens,
-/// the `Connection` creates the frame and returns it to the caller. 
+/// the `Connection` creates the frame and returns it to the caller.
 #[derive(Debug)]
-pub struct Connection { 
-    stream: BufWriter<TcpStream>, 
+pub struct Connection {
+    stream: BufWriter<TcpStream>,
     // The buffer for reading frames.
     read_buf: BytesMut,
 }
 
 const BUF_SIZE: usize = 4 * 1024;
 
-impl Connection { 
+impl Connection {
     pub fn new(stream: TcpStream) -> Connection {
-        Connection { 
-            stream: BufWriter::new(stream), 
+        Connection {
+            stream: BufWriter::new(stream),
             read_buf: BytesMut::with_capacity(BUF_SIZE),
         }
     }
@@ -46,11 +45,11 @@ impl Connection {
             }
 
             // There is not enough buffered data to read a frame. Attempt to
-            // read more data from `TcpStream`. 
+            // read more data from `TcpStream`.
             // `0` indicates "end of stream".
             if 0 == self.stream.read_buf(&mut self.read_buf).await? {
                 // The remote closed the connection. For this to be a clean
-                // shutdown, there should be no data in the read buffer. 
+                // shutdown, there should be no data in the read buffer.
                 if self.read_buf.is_empty() {
                     return Ok(None);
                 }
@@ -66,7 +65,7 @@ impl Connection {
     fn parse_frame(&mut self) -> crate::Result<Option<Frame>> {
         use frame::Error::Incomplete;
 
-        // Cursor implements `Buf` from the `bytes` crate 
+        // Cursor implements `Buf` from the `bytes` crate
         let mut buf = Cursor::new(&self.read_buf[..]);
 
         // The first step is to check if enough data has been buffered to parse
@@ -76,18 +75,18 @@ impl Connection {
         // received.
         match Frame::check(&mut buf) {
             Ok(_) => {
-                // The `check` function will have advanced the cursor until the end of the frame.  
+                // The `check` function will have advanced the cursor until the end of the frame.
                 let len = buf.position() as usize;
 
                 // Reset the position to zero before passing the cursor to `Frame::parse`.
-                buf.set_position(0); 
+                buf.set_position(0);
                 let frame = Frame::parse(&mut buf)?;
                 // Discard the parsed data from the read buffer.
                 self.read_buf.advance(len);
 
                 Ok(Some(frame))
             }
-            // There is not enough data present in the read buffer to parse a single frame. 
+            // There is not enough data present in the read buffer to parse a single frame.
             Err(Incomplete) => Ok(None),
             // Returning `Err` from here will result in the connection being closed.
             Err(e) => Err(e.into()),
@@ -142,7 +141,7 @@ impl Connection {
                 self.write_decimal(len as u64).await?;
                 self.stream.write_all(val).await?;
                 self.stream.write_all(b"\r\n").await?;
-            }           
+            }
             Frame::Array(_) => unreachable!(),
         }
 

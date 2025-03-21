@@ -2,14 +2,14 @@
 //!
 //! Provides an async connect and methods for issuing the supported commands.
 
+use crate::Result;
 use crate::cmd::{Get, Ping, Protocol, Publish, Set, Subscribe, Unsubscribe};
-use crate::{Connection, Frame}; 
+use crate::{Connection, Frame};
 use bytes::Bytes;
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
 use tokio::net::{TcpStream, ToSocketAddrs};
 use tracing::{debug, instrument};
-use crate::Result;
 
 /// Backed by a single `TcpStream`.
 pub struct Client {
@@ -35,7 +35,7 @@ pub struct Message {
 
 impl Client {
     /// Establish a connection with the Redis server located at `addr`.
-    pub async fn connect<T: ToSocketAddrs>(addr: T) -> crate::Result<Client> { 
+    pub async fn connect<T: ToSocketAddrs>(addr: T) -> crate::Result<Client> {
         let stream = TcpStream::connect(addr).await?;
         let connection = Connection::new(stream);
 
@@ -44,7 +44,7 @@ impl Client {
 
     /// [Ping] to the server.
     ///
-    /// [Ping]: crate::cmd::Ping 
+    /// [Ping]: crate::cmd::Ping
     #[instrument(skip(self))]
     pub async fn ping(&mut self, msg: Option<Bytes>) -> crate::Result<Bytes> {
         let frame = Ping::new(msg).into_frame();
@@ -59,12 +59,12 @@ impl Client {
     }
 
     /// Get the value of key.
-    /// 
+    ///
     /// # return
-    /// 
+    ///
     /// If the key does not exist the special value `None` is returned.
     #[instrument(skip(self))]
-    pub async fn get(&mut self, key: &str) -> Result<Option<Bytes>> { 
+    pub async fn get(&mut self, key: &str) -> Result<Option<Bytes>> {
         let frame = Get::new(key).into_frame();
         debug!(request = ?frame);
 
@@ -87,20 +87,20 @@ impl Client {
     /// Set `key` to hold the given `value`.
     ///
     /// If key already holds a value, it is overwritten. Any previous time to
-    /// live associated with the key is discarded on successful SET operation. 
+    /// live associated with the key is discarded on successful SET operation.
     #[instrument(skip(self))]
-    pub async fn set(&mut self, key: &str, value: Bytes) -> Result<()> { 
+    pub async fn set(&mut self, key: &str, value: Bytes) -> Result<()> {
         self.set_cmd(Set::new(key, value, None)).await
     }
 
     /// Set `key` to hold the given `value`. The value expires after `expiration`
-    /// 
+    ///
     /// If key already holds a value, it is overwritten. Any previous time to
     /// live associated with the key is discarded on a successful SET operation.
     ///
     /// # Note
     ///
-    /// This function assumes the client and server stay relatively synchronized in time. 
+    /// This function assumes the client and server stay relatively synchronized in time.
     /// The real world tends to not be so favorable.
     #[instrument(skip(self))]
     pub async fn set_expires(
@@ -108,15 +108,15 @@ impl Client {
         key: &str,
         value: Bytes,
         expiration: Duration,
-    ) -> Result<()> { 
+    ) -> Result<()> {
         self.set_cmd(Set::new(key, value, Some(expiration))).await
     }
 
-    /// The core `SET` logic. 
-    async fn set_cmd(&mut self, cmd: Set) -> Result<()> { 
-        let frame = cmd.into_frame(); 
+    /// The core `SET` logic.
+    async fn set_cmd(&mut self, cmd: Set) -> Result<()> {
+        let frame = cmd.into_frame();
         debug!(request = ?frame);
- 
+
         self.connection.write_frame(&frame).await?;
 
         // Wait for the response from the server.
@@ -127,15 +127,15 @@ impl Client {
     }
 
     /// publish `message` to the given `channel`.
-    /// 
+    ///
     /// # Return
-    /// 
+    ///
     /// Returns the number of subscribers currently listening on the channel.
     #[instrument(skip(self))]
-    pub async fn publish(&mut self, channel: &str, message: Bytes) -> Result<u64> { 
+    pub async fn publish(&mut self, channel: &str, message: Bytes) -> Result<u64> {
         let frame = Publish::new(channel, message).into_frame();
         debug!(request = ?frame);
- 
+
         self.connection.write_frame(&frame).await?;
 
         // Read the response from server.
@@ -150,23 +150,23 @@ impl Client {
     /// Once a client issues a subscribe command, it may no longer issue any
     /// non-pub/sub commands. The function consumes `self` and returns a `Subscriber`.
     #[instrument(skip(self))]
-    pub async fn subscribe(mut self, channels: Vec<String>) -> Result<Subscriber> { 
+    pub async fn subscribe(mut self, channels: Vec<String>) -> Result<Subscriber> {
         self.do_subscribe(&channels).await?;
- 
+
         Ok(Subscriber {
             client: self,
             subscribed_channels: channels,
         })
     }
- 
+
     async fn do_subscribe(&mut self, channels: &[String]) -> Result<()> {
         let frame = Subscribe::new(channels.to_vec()).into_frame();
         debug!(request = ?frame);
- 
+
         self.connection.write_frame(&frame).await?;
 
-        // For each channel being subscribed to, the server responds with a confirmation message.  
-        for channel in channels { 
+        // For each channel being subscribed to, the server responds with a confirmation message.
+        for channel in channels {
             let resp_frame = self.read_response().await?;
 
             // Verify the server responds.
@@ -174,7 +174,7 @@ impl Client {
                 Frame::Array(ref frames) => match frames.as_slice() {
                     // The server responds with an array frame in the form of:
                     // [ "subscribe", channel, num-subscribed ]
-                    // 
+                    //
                     [subscribe, channel_name, ..]
                         if *subscribe == "subscribe" && *channel_name == channel => {}
                     _ => return Err(resp_frame.to_error()),
@@ -233,11 +233,11 @@ impl Subscriber {
             None => Ok(None),
         }
     }
- 
+
     /// Subscribe channels
     #[instrument(skip(self))]
-    pub async fn subscribe(&mut self, channels: &[String]) -> Result<()> { 
-        self.client.do_subscribe(channels).await?; 
+    pub async fn subscribe(&mut self, channels: &[String]) -> Result<()> {
+        self.client.do_subscribe(channels).await?;
         self.subscribed_channels
             .extend(channels.iter().map(Clone::clone));
 
@@ -249,7 +249,7 @@ impl Subscriber {
     pub async fn unsubscribe(&mut self, channels: &[String]) -> Result<()> {
         let frame = Unsubscribe::new(channels).into_frame();
         debug!(request = ?frame);
- 
+
         self.client.connection.write_frame(&frame).await?;
 
         // if the input channel list is empty, server acknowledges as unsubscribing
@@ -272,7 +272,7 @@ impl Subscriber {
                             return Err(resp_frame.to_error());
                         }
 
-                        self.subscribed_channels.retain(|c| *channel != &c); 
+                        self.subscribed_channels.retain(|c| *channel != &c);
                         // Only a single channel should be removed from subscribed_channels.
                         if self.subscribed_channels.len() != len - 1 {
                             return Err(resp_frame.to_error());
