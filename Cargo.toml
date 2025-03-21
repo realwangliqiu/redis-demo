@@ -15,15 +15,10 @@ edition = "2024"
 readme = "./README.md"
 license = "MIT"
 repository = "https://github.com/realwangliqiu/redis-demo"
-homepage = "https://github.com/realwangliqiu/redis-demo"
-# registry names that are allowed to be published to.
+homepage = "https://github.com/realwangliqiu/redis-demo" 
 publish = ["crates-io", ]
 
-
-# since Rust-1.64
-# [workspace.dependencies] is where you define keys that can be inherited by members of a workspace. 
-# dependencies cannot be declared as optional here.
-# features declared here are additive with the features from member's [dependencies].
+ 
 [workspace.dependencies]
 async-stream = "0.3"
 atoi = "2.0"

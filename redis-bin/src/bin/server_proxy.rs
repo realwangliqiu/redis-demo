@@ -10,28 +10,31 @@ use redis_lib::{server, DEFAULT_PORT};
 use clap::Parser;
 use tokio::net::TcpListener;
 use tokio::signal;
+ 
 
-
-
-#[cfg(feature = "otel")]
-// To be able to set the XrayPropagator
+#[cfg(feature = "otel")] 
 use opentelemetry::global;
-#[cfg(feature = "otel")]
-// To configure certain options such as sampling rate
-use opentelemetry::sdk::trace as sdktrace;
-#[cfg(feature = "otel")]
-// For passing along the same XrayId across services
-use opentelemetry_aws::trace::XrayPropagator;
-#[cfg(feature = "otel")]
-// The `Ext` traits are to allow the Registry to accept the
+#[cfg(feature = "otel")] 
+use opentelemetry::sdk::trace as sdktrace; 
+#[cfg(feature = "otel")] 
 // OpenTelemetry-specific types (such as `OpenTelemetryLayer`)
 use tracing_subscriber::{
     fmt, layer::SubscriberExt, util::SubscriberInitExt, util::TryInitError, EnvFilter,
 };
 
+/// cargo install --locked tokio-console
+///
+/// build with: RUSTFLAGS=--cfg tokio_unstable
+///
+/// tokio-console --lang en_US.UTF-8 
+fn console(){ 
+    console_subscriber::init();
+}
+ 
 #[tokio::main]
 pub async fn main() -> redis_lib::Result<()> {
     set_up_logging()?;
+    // console();
 
     let cmd = CliCommand::parse();
     // let port = cmd.port.unwrap_or(DEFAULT_PORT);
@@ -51,18 +54,12 @@ struct CliCommand {
 }
 
 #[cfg(not(feature = "otel"))]
-fn set_up_logging() -> redis_lib::Result<()> {
-    // See https://docs.rs/tracing for more info
+fn set_up_logging() -> redis_lib::Result<()> { 
     tracing_subscriber::fmt::try_init()
 }
 
 #[cfg(feature = "otel")]
-fn set_up_logging() -> Result<(), TryInitError> {
-    // Set the global propagator to X-Ray propagator
-    // Note: If you need to pass the x-amzn-trace-id across services in the same trace,
-    // you will need this line. However, this requires additional code not pictured here.
-    // For a full example using hyper, see:
-    // https://github.com/open-telemetry/opentelemetry-rust/blob/v0.19.0/examples/aws-xray/src/server.rs#L14-L26
+fn set_up_logging() -> Result<(), TryInitError> { 
     global::set_text_map_propagator(XrayPropagator::default());
 
     let tracer = opentelemetry_otlp::new_pipeline()
